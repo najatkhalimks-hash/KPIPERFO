@@ -8,6 +8,21 @@ import { Plus, Trash2, Edit2 } from 'lucide-react'
 import StatusBadge from '@/components/ui/StatusBadge'
 import type { Supervision } from '@/types/database'
 
+const SUPERVISION_TYPES = [
+  { value: 'doctorant', label: 'Doctorant' },
+  { value: 'master', label: 'Master' },
+  { value: 'pfe', label: 'PFE' },
+  { value: 'stage', label: 'Stage' },
+  { value: 'postdoc', label: 'Post-doctorant' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'in_progress', label: 'En cours' },
+  { value: 'defended', label: 'Soutenu' },
+  { value: 'completed', label: 'Terminé' },
+  { value: 'abandoned', label: 'Abandonné' },
+]
+
 interface SupervisionModalProps {
   supervision: Supervision | null
   researcherId: string | undefined
@@ -38,14 +53,27 @@ function SupervisionModal({ supervision, researcherId, onClose, onSaved }: Super
     if (!researcherId) return
     setLoading(true)
 
-    const payload = { ...form, researcher_id: researcherId }
+    const payload = {
+      student_name: form.student_name,
+      supervision_type: form.supervision_type,
+      thesis_title: form.thesis_title || null,
+      program: form.program || null,
+      co_supervisor: form.co_supervisor || null,
+      start_date: form.start_date || null,
+      defense_date: form.defense_date || null,
+      status: form.status,
+      result: form.result || null,
+      comment: form.comment || null,
+      researcher_id: researcherId,
+    }
+
     try {
       if (supervision?.id) { 
-        await supabase.from('supervisions').update(payload).eq('id', supervision.id) 
+        await (supabase.from('supervisions') as any).update(payload).eq('id', supervision.id) 
       } else { 
-        await supabase.from('supervisions').insert([payload]) 
+        await (supabase.from('supervisions') as any).insert([payload]) 
       }
-      toast.success('Enregistré')
+      toast.success('Encadrement enregistré')
       onSaved()
     } catch {
       toast.error('Erreur lors de l’enregistrement')
@@ -61,7 +89,7 @@ function SupervisionModal({ supervision, researcherId, onClose, onSaved }: Super
           <h2 className="text-lg font-semibold">{supervision ? 'Modifier' : 'Ajouter'} un encadrement</h2>
           <button type="button" onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="label">Nom de l'étudiant *</label>
             <input required className="input-field" value={form.student_name} onChange={(e) => set('student_name', e.target.value)} />
@@ -70,13 +98,13 @@ function SupervisionModal({ supervision, researcherId, onClose, onSaved }: Super
             <div>
               <label className="label">Type</label>
               <select className="input-field" value={form.supervision_type} onChange={(e) => set('supervision_type', e.target.value)}>
-                {['doctorant', 'master', 'pfe', 'stage', 'postdoc'].map((t) => <option key={t}>{t}</option>)}
+                {SUPERVISION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div>
               <label className="label">Statut</label>
               <select className="input-field" value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {['in_progress', 'defended', 'abandoned', 'completed'].map((s) => <option key={s} value={s}>{s}</option>)}
+                {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
           </div>
@@ -85,11 +113,11 @@ function SupervisionModal({ supervision, researcherId, onClose, onSaved }: Super
             <input className="input-field" value={form.thesis_title} onChange={(e) => set('thesis_title', e.target.value)} />
           </div>
           <div>
-            <label className="label">Programme</label>
+            <label className="label">Programme / Filière</label>
             <input className="input-field" value={form.program} onChange={(e) => set('program', e.target.value)} />
           </div>
           <div>
-            <label className="label">Co-encadrant</label>
+            <label className="label">Co-encadrant (si applicable)</label>
             <input className="input-field" value={form.co_supervisor} onChange={(e) => set('co_supervisor', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -98,13 +126,17 @@ function SupervisionModal({ supervision, researcherId, onClose, onSaved }: Super
               <input type="date" className="input-field" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
             </div>
             <div>
-              <label className="label">Date soutenance</label>
+              <label className="label">Date soutenance / fin</label>
               <input type="date" className="input-field" value={form.defense_date} onChange={(e) => set('defense_date', e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="label">Résultat</label>
+            <label className="label">Résultat / Note / Mention</label>
             <input className="input-field" value={form.result} onChange={(e) => set('result', e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Commentaire ou Remarque</label>
+            <textarea rows={2} className="input-field resize-none" value={form.comment} onChange={(e) => set('comment', e.target.value)} />
           </div>
           <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
@@ -137,18 +169,20 @@ export default function SupervisionPage() {
 
   const del = useMutation({ 
     mutationFn: async (id: string) => { 
-      await supabase.from('supervisions').delete().eq('id', id) 
+      await (supabase.from('supervisions') as any).delete().eq('id', id) 
     }, 
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['supervisions'] })
-      toast.success('Supprimé')
+      toast.success('Supprimé avec succès')
     }
   })
 
+  const itemsData = items as any[]
+
   const stats = { 
-    total: items.length, 
-    phd: items.filter((i: any) => i.supervision_type === 'doctorant').length, 
-    defended: items.filter((i: any) => i.status === 'defended').length 
+    total: itemsData.length, 
+    phd: itemsData.filter((i) => i.supervision_type === 'doctorant').length, 
+    defended: itemsData.filter((i) => i.status === 'defended').length 
   }
 
   return (
@@ -163,7 +197,7 @@ export default function SupervisionPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { label: 'Total encadrés', value: stats.total, icon: '👥' }, 
           { label: 'Doctorants', value: stats.phd, icon: '🎓' }, 
@@ -196,31 +230,29 @@ export default function SupervisionPage() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
-            ) : items.length === 0 ? (
+            ) : itemsData.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucun encadrement enregistré</td></tr>
-            ) : items.map((item) => {
-              const itemData = item as any
-              return (
-                <tr key={item.id} className="table-row">
-                  <td className="font-medium text-um6p-navy text-sm">{itemData.student_name}</td>
-                  <td><span className="badge-info capitalize">{itemData.supervision_type}</span></td>
-                  <td className="text-sm text-um6p-gray-dark max-w-xs truncate">{itemData.thesis_title}</td>
-                  <td className="text-sm">{itemData.program}</td>
-                  <td className="text-xs text-um6p-gray-dark">{itemData.start_date}</td>
-                  <td className="text-xs text-um6p-gray-dark">{itemData.defense_date}</td>
-                  <td><StatusBadge status={itemData.status ?? 'in_progress'} /></td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
-                      <button onClick={() => { if (item.id && confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
+            ) : itemsData.map((item) => (
+              <tr key={item.id} className="table-row">
+                <td className="font-medium text-um6p-navy text-sm">{item.student_name}</td>
+                <td><span className="badge-info capitalize">{SUPERVISION_TYPES.find(t => t.value === item.supervision_type)?.label ?? item.supervision_type}</span></td>
+                <td className="text-sm text-um6p-gray-dark max-w-xs truncate" title={item.thesis_title}>{item.thesis_title ?? '-'}</td>
+                <td className="text-sm">{item.program ?? '-'}</td>
+                <td className="text-xs text-um6p-gray-dark">{item.start_date ?? '-'}</td>
+                <td className="text-xs text-um6p-gray-dark">{item.defense_date ?? '-'}</td>
+                <td><StatusBadge status={item.status ?? 'in_progress'} /></td>
+                <td>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
+                    <button onClick={() => { if (item.id && confirm('Supprimer cet encadrement ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+
       {modalOpen && (
         <SupervisionModal 
           supervision={editing} 
