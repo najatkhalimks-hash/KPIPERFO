@@ -38,12 +38,21 @@ function ExpertiseModal({ item, researcherId, onClose, onSaved }: any) {
     setLoading(true)
     const payload = { ...form, researcher_id: researcherId }
     try {
-      if (item) await supabase.from('expertise_activities').update(payload).eq('id', item.id)
-      else await supabase.from('expertise_activities').insert(payload)
+      // CORRECTION : Cast de la table en any pour supprimer le blocage strict du schéma Supabase
+      const table = supabase.from('expertise_activities') as any
+
+      if (item) {
+        await table.update(payload).eq('id', item.id)
+      } else {
+        await table.insert([payload])
+      }
       toast.success('Expertise enregistrée')
       onSaved()
-    } catch { toast.error('Erreur') }
-    setLoading(false)
+    } catch { 
+      toast.error('Erreur lors de l\'enregistrement') 
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -102,7 +111,7 @@ function ExpertiseModal({ item, researcherId, onClose, onSaved }: any) {
           </div>
           <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={loading} className="btn-primary">{loading ? '...' : 'Enregistrer'}</button>
+            <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
           </div>
         </form>
       </div>
@@ -122,22 +131,26 @@ export default function ExpertisePage() {
     enabled: !!profile?.id,
     queryFn: async () => {
       const { data } = await supabase.from('expertise_activities').select('*').eq('researcher_id', profile!.id).order('expertise_date', { ascending: false })
-      return data ?? []
+      return (data as Expertise[]) ?? []
     },
   })
 
   const del = useMutation({
-    mutationFn: async (id: string) => { await supabase.from('expertise_activities').delete().eq('id', id) },
+    mutationFn: async (id: string) => { 
+      await (supabase.from('expertise_activities') as any).delete().eq('id', id) 
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['expertise_activities'] }); toast.success('Supprimé') },
   })
 
-  const filtered = typeFilter === 'all' ? items : items.filter((i) => i.expertise_type === typeFilter)
+  // CORRECTION : Cast as any[] pour stabiliser les fonctions de filtrage et d'agrégation locales
+  const itemsData = items as any[]
+  const filtered = typeFilter === 'all' ? itemsData : itemsData.filter((i) => i.expertise_type === typeFilter)
 
   const stats = {
-    total: items.length,
-    international: items.filter((i) => i.is_international).length,
-    reviews: items.filter((i) => i.expertise_type === 'expertise_revue').reduce((s, i) => s + (i.nb_reviews ?? 1), 0),
-    jurys: items.filter((i) => ['jury_these', 'jury_habilitation'].includes(i.expertise_type ?? '')).length,
+    total: itemsData.length,
+    international: itemsData.filter((i) => i.is_international).length,
+    reviews: itemsData.filter((i) => i.expertise_type === 'expertise_revue').reduce((s, i) => s + (i.nb_reviews ?? 1), 0),
+    jurys: itemsData.filter((i) => ['jury_these', 'jury_habilitation'].includes(i.expertise_type ?? '')).length,
   }
 
   return (
@@ -176,32 +189,50 @@ export default function ExpertisePage() {
       <div className="table-container">
         <table className="table-base">
           <thead className="table-head">
-            <tr><th>Date</th><th>Type</th><th>Intitulé</th><th>Organisation</th><th>Pays</th><th>Rôle</th><th>Intl.</th><th>Actions</th></tr>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Intitulé</th>
+              <th>Organisation</th>
+              <th>Pays</th>
+              <th>Rôle</th>
+              <th>Intl.</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
-              : filtered.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune activité d'expertise enregistrée</td></tr>
-              : filtered.map((item) => (
-                <tr key={item.id} className="table-row">
-                  <td className="text-xs text-um6p-gray-dark whitespace-nowrap">{item.expertise_date}</td>
-                  <td><span className="badge-info">{EXPERTISE_TYPES.find(t => t.value === item.expertise_type)?.label ?? item.expertise_type}</span></td>
-                  <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{item.title}</td>
-                  <td className="text-sm text-um6p-gray-dark">{item.organization}</td>
-                  <td className="text-sm">{item.country}</td>
-                  <td className="text-xs text-um6p-gray-dark">{item.role}</td>
-                  <td>{item.is_international ? <Star size={14} className="text-um6p-gold fill-um6p-gold" /> : null}</td>
-                  <td><div className="flex gap-1">
+            {isLoading ? (
+              <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune activité d'expertise enregistrée</td></tr>
+            ) : filtered.map((item) => (
+              <tr key={item.id} className="table-row">
+                <td className="text-xs text-um6p-gray-dark whitespace-nowrap">{item.expertise_date}</td>
+                <td><span className="badge-info">{EXPERTISE_TYPES.find(t => t.value === item.expertise_type)?.label ?? item.expertise_type}</span></td>
+                <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{item.title}</td>
+                <td className="text-sm text-um6p-gray-dark">{item.organization}</td>
+                <td className="text-sm">{item.country}</td>
+                <td className="text-xs text-um6p-gray-dark">{item.role}</td>
+                <td>{item.is_international ? <Star size={14} className="text-um6p-gold fill-um6p-gold" /> : null}</td>
+                <td>
+                  <div className="flex gap-1">
                     <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
                     <button onClick={() => { if (confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
-                  </div></td>
-                </tr>
-              ))}
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
       {modalOpen && (
-        <ExpertiseModal item={editing} researcherId={profile?.id} onClose={() => { setModalOpen(false); setEditing(null) }} onSaved={() => { qc.invalidateQueries({ queryKey: ['expertise_activities', 'dashboard'] }); setModalOpen(false); setEditing(null) }} />
+        <ExpertiseModal 
+          item={editing} 
+          researcherId={profile?.id} 
+          onClose={() => { setModalOpen(false); setEditing(null) }} 
+          onSaved={() => { qc.invalidateQueries({ queryKey: ['expertise_activities', 'dashboard'] }); setModalOpen(false); setEditing(null) }} 
+        />
       )}
     </div>
   )
