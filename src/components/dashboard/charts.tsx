@@ -3,7 +3,15 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Forecast, Publication, Project } from '@/types/database'
 
-// 1. Publications by year chart
+interface TimelineEvent {
+  id: string
+  title: string
+  created_at: string
+  type: 'publication' | 'project' | 'communication'
+  icon: string
+}
+
+// 1. Chart: Publications by year
 export function PublicationsByYear({ researcherId }: { researcherId?: string }) {
   const { data } = useQuery({
     queryKey: ['publications-by-year', researcherId],
@@ -46,7 +54,7 @@ export function PublicationsByYear({ researcherId }: { researcherId?: string }) 
   )
 }
 
-// 2. Forecast vs realized chart
+// 2. Chart: Forecast vs realized
 export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast[]; kpis?: Record<string, number | string> }) {
   const keyLabels: Record<string, string> = {
     publications_total: 'Publications',
@@ -81,7 +89,7 @@ export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast
   )
 }
 
-// 3. Projects budget chart
+// 3. Chart: Projects budget
 export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] }) {
   const pData = projectsData as any[]
 
@@ -111,29 +119,30 @@ export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] 
           <span className="text-sm font-semibold text-um6p-navy w-20 text-right">{formatMAD(item.value)} MAD</span>
         </div>
       ))}
-      <p className="text-xs text-um6p-gray-dark pt-2">
-        Total obtenu: <strong>{pData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0).toLocaleString()} MAD</strong>
-      </p>
+      <div className="text-xs text-um6p-gray-dark pt-2 border-t border-gray-100 mt-2">
+        Total obtenu: <strong className="text-um6p-navy">{pData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0).toLocaleString('fr-FR')} MAD</strong>
+      </div>
     </div>
   )
 }
 
-// 4. Activity timeline
+// 4. Component: Activity timeline
 export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
-  const { data } = useQuery({
+  const { data } = useQuery<TimelineEvent[]>({
     queryKey: ['activity-timeline', researcherId],
     enabled: !!researcherId,
     queryFn: async () => {
+      // Sécurisation globale des requêtes parallèles en cas de table manquante ou instable
       const [pubs, projects, comms] = await Promise.all([
-        (supabase.from('publications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3),
-        (supabase.from('projects') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
-        (supabase.from('communications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
+        (supabase.from('publications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3).catch(() => ({ data: [] })),
+        (supabase.from('projects') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
+        (supabase.from('communications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
       ])
 
-      const events = [
-        ...(pubs.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication', icon: '📄' })),
-        ...(projects.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project', icon: '📁' })),
-        ...(comms.data ?? []).filter((c: any) => c?.created_at).map((c: any) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication', icon: '🎤' })),
+      const events: TimelineEvent[] = [
+        ...(pubs.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication' as const, icon: '📄' })),
+        ...(projects.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project' as const, icon: '📁' })),
+        ...(comms.data ?? []).filter((c: any) => c?.created_at).map((c: any) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication' as const, icon: '🎤' })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6)
 
       return events
@@ -142,15 +151,24 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
 
   if (!data?.length) return <p className="text-sm text-um6p-gray-dark text-center py-8">Aucune activité récente</p>
 
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR')
+    } catch {
+      return '—'
+    }
+  }
+
   return (
     <div className="space-y-3">
       {data.map((item) => (
         <div key={`${item.type}-${item.id}`} className="flex items-start gap-3">
-          <span className="text-lg mt-0.5">{item.icon}</span>
+          <span className="text-lg mt-0.5 flex-shrink-0" role="img" aria-label={item.type}>{item.icon}</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-um6p-navy truncate">{item.title}</p>
+            <p className="text-sm font-medium text-um6p-navy truncate" title={item.title}>{item.title}</p>
             <p className="text-xs text-um6p-gray-dark">
-              {new Date(item.created_at).toLocaleDateString('fr-FR')}
+              {formatDate(item.created_at)}
             </p>
           </div>
         </div>
