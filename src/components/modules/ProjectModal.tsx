@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import type { Database, Project } from '@/types/database'
 
-// 1. On extrait proprement le type attendu pour les opérations d'insertion et de mise à jour
+// Extraction propre du type attendu pour les opérations d'insertion et de mise à jour
 type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 
 interface Props { 
@@ -52,6 +52,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
 
   const set = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }))
 
+  // Calcul automatique du budget UM6P
   const calcBudget = (total: string, pct: number) => {
     const t = parseFloat(total)
     if (!isNaN(t)) {
@@ -63,7 +64,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
     e.preventDefault()
     setLoading(true)
 
-    // 2. Construction d'un payload respectant scrupuleusement l'interface générée par Supabase
+    // Payload typé respectant les contraintes de clés et de types de votre schéma PostgreSQL
     const payload: ProjectInsert = {
       title: form.title,
       type: form.type || null,
@@ -97,7 +98,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
       }
       onSaved()
     } catch (err) { 
-      toast.error('Erreur lors de l\'enregistrement') 
+      toast.error("Erreur lors de l'enregistrement") 
     } finally {
       setLoading(false)
     }
@@ -114,11 +115,13 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
             <X size={18} />
           </button>
         </div>
+        
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
           <div>
             <label className="label">Intitulé du projet *</label>
             <input required className="input-field" value={form.title} onChange={(e) => set('title', e.target.value)} />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Type</label>
@@ -138,6 +141,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
               </select>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Statut</label>
@@ -152,6 +156,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
               <input className="input-field" value={form.funder} onChange={(e) => set('funder', e.target.value)} />
             </div>
           </div>
+
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="label">Budget total (MAD)</label>
@@ -178,6 +183,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
               <input type="number" className="input-field" value={form.um6p_budget} onChange={(e) => set('um6p_budget', e.target.value)} />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Date début</label>
@@ -188,6 +194,7 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
               <input type="date" className="input-field" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} />
             </div>
           </div>
+
           <label className="flex items-center gap-2 cursor-pointer pt-1">
             <input 
               type="checkbox" 
@@ -197,14 +204,16 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
             />
             <span className="text-sm text-um6p-navy font-medium">Projet international</span>
           </label>
+
           <div>
             <label className="label">Commentaire</label>
             <textarea rows={2} className="input-field resize-none" value={form.comment} onChange={(e) => set('comment', e.target.value)} />
           </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
+              {loading ? 'Enregistrement...' : project ? 'Mettre à jour' : 'Enregistrer'}
             </button>
           </div>
         </form>
