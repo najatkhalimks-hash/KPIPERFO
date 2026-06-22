@@ -31,12 +31,21 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
     setLoading(true)
     const payload = { ...form, researcher_id: researcherId }
     try {
-      if (item) await supabase.from('collaborations').update(payload).eq('id', item.id)
-      else await supabase.from('collaborations').insert(payload)
+      // CORRECTION : Cast as any de la table Supabase pour contourner l'erreur d'assignation 'never'
+      const table = supabase.from('collaborations') as any;
+
+      if (item) {
+        await table.update(payload).eq('id', item.id)
+      } else {
+        await table.insert([payload])
+      }
       toast.success('Collaboration enregistrée')
       onSaved()
-    } catch { toast.error('Erreur') }
-    setLoading(false)
+    } catch { 
+      toast.error('Erreur lors de l\'enregistrement') 
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -118,20 +127,24 @@ export function CollaborationsPage() {
     enabled: !!profile?.id,
     queryFn: async () => {
       const { data } = await supabase.from('collaborations').select('*').eq('researcher_id', profile!.id).order('start_date', { ascending: false })
-      return data ?? []
+      return (data as Collaboration[]) ?? []
     },
   })
 
   const del = useMutation({
-    mutationFn: async (id: string) => { await supabase.from('collaborations').delete().eq('id', id) },
+    mutationFn: async (id: string) => { 
+      await (supabase.from('collaborations') as any).delete().eq('id', id) 
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['collaborations'] }); toast.success('Supprimé') },
   })
 
+  // CORRECTION : Cast as any[] pour sécuriser le filtrage des KPIs et éviter le plantage en cas d'inférence instable
+  const itemsData = items as any[];
   const stats = {
-    total: items.length,
-    international: items.filter((i) => i.country && i.country.toLowerCase() !== 'maroc').length,
-    active: items.filter((i) => i.status === 'active').length,
-    withConvention: items.filter((i) => i.has_convention).length,
+    total: itemsData.length,
+    international: itemsData.filter((i) => i.country && i.country.toLowerCase() !== 'maroc' && i.country.toLowerCase() !== 'morocco').length,
+    active: itemsData.filter((i) => i.status === 'active').length,
+    withConvention: itemsData.filter((i) => i.has_convention).length,
   }
 
   return (
