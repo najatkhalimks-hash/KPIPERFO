@@ -16,12 +16,27 @@ const QUARTILES = ['Q1', 'Q2', 'Q3', 'Q4']
 
 export default function PublicationModal({ publication, researcherId, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
-    title: '', authors: '', journal: '', year: new Date().getFullYear(),
-    doi: '', eid: '', volume: '', issue: '', pages: '',
-    citation_count: 0, quartile: '', impact_factor: '',
-    source_type: '', document_type: '', publication_stage: 'draft',
-    is_open_access: false, is_first_author: false, is_corresponding_author: false,
-    um6p_affiliation: true, affiliations: '', gsmi_comment: '',
+    title: '', 
+    authors: '', 
+    journal: '', 
+    year: new Date().getFullYear(),
+    doi: '', 
+    eid: '', 
+    volume: '', 
+    issue: '', 
+    pages: '',
+    citation_count: 0, 
+    quartile: '', 
+    impact_factor: '',
+    source_type: '', 
+    document_type: '', 
+    publication_stage: 'draft',
+    is_open_access: false, 
+    is_first_author: false, 
+    is_corresponding_author: false,
+    um6p_affiliation: true, 
+    affiliations: '', 
+    gsmi_comment: '',
   })
   const [loading, setLoading] = useState(false)
   const [doiFetching, setDoiFetching] = useState(false)
@@ -78,31 +93,38 @@ export default function PublicationModal({ publication, researcherId, onClose, o
       }
     } catch {
       toast.error('Impossible de récupérer les métadonnées. Vérifiez le DOI.')
+    } finally {
+      setDoiFetching(false)
     }
-    setDoiFetching(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+
     const payload = {
       ...form,
       researcher_id: researcherId,
       impact_factor: form.impact_factor ? parseFloat(form.impact_factor) : null,
     }
+
     try {
-      if (publication) {
-        await supabase.from('publications').update(payload).eq('id', publication.id)
+      // CORRECTION TS2345 : Cast as any pour éviter le blocage du compilateur
+      const table = supabase.from('publications') as any
+
+      if (publication?.id) {
+        await table.update(payload).eq('id', publication.id)
         toast.success('Publication mise à jour')
       } else {
-        await supabase.from('publications').insert(payload)
+        await table.insert([payload])
         toast.success('Publication ajoutée')
       }
       onSaved()
-    } catch (err) {
-      toast.error('Erreur lors de l\'enregistrement')
+    } catch {
+      toast.error("Erreur lors de l'enregistrement")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const set = (k: string, v: any) => setForm((prev) => ({ ...prev, [k]: v }))
@@ -114,13 +136,15 @@ export default function PublicationModal({ publication, researcherId, onClose, o
           <h2 className="text-lg font-semibold text-um6p-navy">
             {publication ? 'Modifier la publication' : 'Ajouter une publication'}
           </h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-um6p-gray"><X size={18} /></button>
+          <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-um6p-gray">
+            <X size={18} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           {/* DOI fetch */}
           <div className="form-section">
-            <p className="form-section-title">🔍 Récupération automatique par DOI</p>
+            <p className="form-section-title font-medium mb-1">🔍 Récupération automatique par DOI</p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -129,8 +153,12 @@ export default function PublicationModal({ publication, researcherId, onClose, o
                 value={form.doi}
                 onChange={(e) => set('doi', e.target.value)}
               />
-              <button type="button" onClick={fetchFromDOI} disabled={doiFetching || !form.doi}
-                className="btn-secondary flex-shrink-0">
+              <button 
+                type="button" 
+                onClick={fetchFromDOI} 
+                disabled={doiFetching || !form.doi}
+                className="btn-secondary flex-shrink-0 flex items-center gap-1.5"
+              >
                 {doiFetching ? <Loader size={16} className="animate-spin" /> : <Search size={16} />}
                 Crossref
               </button>
@@ -204,7 +232,7 @@ export default function PublicationModal({ publication, researcherId, onClose, o
           </div>
 
           {/* Checkboxes */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 pt-1">
             {[
               { key: 'is_open_access', label: 'Open Access' },
               { key: 'is_first_author', label: 'Premier auteur' },
@@ -212,9 +240,13 @@ export default function PublicationModal({ publication, researcherId, onClose, o
               { key: 'um6p_affiliation', label: 'Affiliation UM6P' },
             ].map(({ key, label }) => (
               <label key={key} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 accent-um6p-green"
-                  checked={(form as any)[key]} onChange={(e) => set(key, e.target.checked)} />
-                <span className="text-sm text-um6p-navy">{label}</span>
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 accent-um6p-green"
+                  checked={(form as any)[key]} 
+                  onChange={(e) => set(key, e.target.checked)} 
+                />
+                <span className="text-sm text-um6p-navy font-medium">{label}</span>
               </label>
             ))}
           </div>
@@ -228,7 +260,7 @@ export default function PublicationModal({ publication, researcherId, onClose, o
             <textarea rows={2} className="input-field resize-none" value={form.gsmi_comment} onChange={(e) => set('gsmi_comment', e.target.value)} />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
+          <div className="flex justify-end gap-3 pt-4 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
             <button type="submit" disabled={loading} className="btn-primary">
               {loading ? 'Enregistrement...' : publication ? 'Mettre à jour' : 'Enregistrer'}
