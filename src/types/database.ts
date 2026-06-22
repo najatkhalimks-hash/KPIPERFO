@@ -14,28 +14,43 @@ export type KpiStatus = 'atteint' | 'en_cours' | 'non_atteint' | 'non_renseigne'
 
 export interface Profile {
   id: string
-  user_id: string
-  first_name: string
-  last_name: string
+  user_id?: string
+  first_name?: string
+  last_name?: string
+  full_name?: string
   email: string
   phone?: string
   grade?: string
   pole?: string
-  entity: string
+  entity?: string
   office?: string
   orcid?: string
+  orcid_id?: string
   scopus_id?: string
   google_scholar_id?: string
+  google_scholar_url?: string
+  researchgate_url?: string
+  personal_website?: string
+  wos_id?: string
   linkedin_url?: string
+  hindex?: number
   expertise_domains?: string[]
   keywords?: string[]
-  research_axes?: string[]
-  start_date?: string
-  role: UserRole
-  avatar_url?: string
+  research_axes?: string[] | string
+  specialty?: string
+  department?: string
+  laboratory?: string
+  phd_date?: string
+  phd_institution?: string
+  hdr_date?: string
+  hdr_institution?: string
+  biography?: string
   bio?: string
-  created_at: string
-  updated_at: string
+  start_date?: string
+  role?: UserRole
+  avatar_url?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface AcademicYear {
@@ -99,36 +114,36 @@ export interface Project {
 }
 
 export interface Training {
-  id: string
-  researcher_id: string
+  id?: string
+  researcher_id: string | undefined
   academic_year_id?: string
-  semester: 'S1' | 'S2'
+  semester: string
   training_type: TrainingType
   activity: string
-  program?: string
+  program: string
   planned_hours: number
   realized_hours: number
   comment?: string
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Supervision {
-  id: string
+  id?: string
   researcher_id: string
   academic_year_id?: string
   student_name: string
   supervision_type: SupervisionType
-  thesis_title?: string
+  thesis_title: string
   program?: string
   co_supervisor?: string
-  start_date?: string
+  start_date: string
   defense_date?: string
   status: SupervisionStatus
   result?: string
   comment?: string
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Communication {
@@ -169,6 +184,26 @@ export interface Patent {
   comment?: string
   created_at: string
   updated_at: string
+}
+
+export interface Service {
+  id?: string
+  researcher_id: string
+  academic_year_id?: string
+  title: string
+  service_type: string
+  client_name: string
+  client_type: string
+  start_date: string
+  end_date?: string
+  contract_amount?: number
+  um6p_share?: number
+  status: ServiceStatus
+  deliverables?: string
+  team_members?: string
+  comment?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface ServiceMission {
@@ -263,6 +298,7 @@ export interface Database {
       supervisions: { Row: Supervision; Insert: Partial<Supervision>; Update: Partial<Supervision> }
       communications: { Row: Communication; Insert: Partial<Communication>; Update: Partial<Communication> }
       patents: { Row: Patent; Insert: Partial<Patent>; Update: Partial<Patent> }
+      services: { Row: Service; Insert: Partial<Service>; Update: Partial<Service> }
       service_missions: { Row: ServiceMission; Insert: Partial<ServiceMission>; Update: Partial<ServiceMission> }
       collaborations: { Row: Collaboration; Insert: Partial<Collaboration>; Update: Partial<Collaboration> }
       expertise_activities: { Row: ExpertiseActivity; Insert: Partial<ExpertiseActivity>; Update: Partial<ExpertiseActivity> }
@@ -298,86 +334,4 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
   { key: 'budget_obtained', labelFr: 'Budget total obtenu (MAD)', labelEn: 'Total budget obtained (MAD)', unit: 'MAD', category: 'projets' },
   { key: 'projects_international', labelFr: 'Projets internationaux', labelEn: 'International projects', category: 'projets' },
   { key: 'hours_initial', labelFr: 'H. Formation initiale (S1+S2)', labelEn: 'Initial training hours (S1+S2)', unit: 'h', category: 'formation' },
-  { key: 'hours_executive', labelFr: 'H. Formation exécutive (S1+S2)', labelEn: 'Executive training hours (S1+S2)', unit: 'h', category: 'formation' },
-  { key: 'hours_doctoral', labelFr: 'H. Formation doctorale (S1+S2)', labelEn: 'Doctoral training hours (S1+S2)', unit: 'h', category: 'formation' },
-  { key: 'phd_supervised', labelFr: 'Doctorants encadrés', labelEn: 'PhD students supervised', category: 'encadrement' },
-  { key: 'masters_supervised', labelFr: 'PFE / Masters encadrés', labelEn: 'PFE / Masters supervised', category: 'encadrement' },
-  { key: 'services_count', labelFr: 'Nombre de prestations', labelEn: 'Number of services', category: 'prestations' },
-  { key: 'services_revenue', labelFr: 'Revenus générés (MAD)', labelEn: 'Revenue generated (MAD)', unit: 'MAD', category: 'prestations' },
-  { key: 'missions_led', labelFr: 'Missions pilotées', labelEn: 'Missions led', category: 'prestations' },
-]
-// --- Tes types existants (Json, UserRole, etc.) ---
-export type Json = string | number | boolean | null | { [key: string]: Json } | Json[]
-export type UserRole = 'chercheur' | 'admin' | 'direction' | 'affilie'
-// ... (le reste de tes types)
-
-// --- INTERFACES À AJOUTER / COMPLÉTER ---
-
-export interface Profile {
-  id: string;
-  full_name: string;
-  email: string;
-  phone?: string;
-  grade?: string;
-  specialty?: string;
-  department?: string;
-  laboratory?: string;
-  research_axes?: string;
-  orcid_id?: string;
-  // Les champs manquants qui causaient l'erreur TS2551 & TS2339 :
-  google_scholar_id?: string; 
-  google_scholar_url?: string;
-  researchgate_url?: string;
-  personal_website?: string;
-  hindex?: number;
-  wos_id?: string;
-  phd_date?: string;
-  phd_institution?: string;
-  hdr_date?: string;
-  hdr_institution?: string;
-  biography?: string;
-}
-
-export interface Service {
-  id?: string;
-  researcher_id: string;
-  title: string;
-  service_type: string;
-  client_name: string;
-  client_type: string;
-  start_date: string;
-  end_date?: string;
-  contract_amount?: number;
-  um6p_share?: number;
-  status: ServiceStatus; // Utilise ton type ServiceStatus ici !
-  deliverables?: string;
-  team_members?: string;
-  comment?: string;
-}
-
-export interface Supervision {
-  id?: string;
-  researcher_id: string;
-  student_name: string;
-  supervision_type: SupervisionType; // Utilise ton type SupervisionType
-  thesis_title: string;
-  program?: string;
-  co_supervisor?: string;
-  start_date: string;
-  defense_date?: string;
-  status: SupervisionStatus; // Utilise ton type SupervisionStatus
-  result?: string;
-  comment?: string;
-}
-
-export interface Training {
-  id?: string;
-  researcher_id: string | undefined;
-  semester: string;
-  training_type: TrainingType; // Utilise ton type TrainingType
-  activity: string;
-  program: string;
-  planned_hours: number;
-  realized_hours: number;
-  comment?: string;
-}
+  { key: 'hours_executive', labelFr: 'H. Formation exécutive (S1+S2)', labelEn: 'Executive training hours (S1+S2
