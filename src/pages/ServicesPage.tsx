@@ -44,7 +44,7 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: ServiceModalProp
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!researcherId) return
-    setLoading(false)
+    setLoading(true) // CORRECTION : Passage à true au démarrage de la requête
     
     const payload = {
       title: form.title,
@@ -64,13 +64,13 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: ServiceModalProp
 
     try {
       if (item?.id) {
-        await supabase.from('services').update(payload).eq('id', item.id)
+        await (supabase.from('services') as any).update(payload).eq('id', item.id)
       } else {
-        await supabase.from('services').insert([payload])
+        await (supabase.from('services') as any).insert([payload])
       }
       toast.success('Prestation enregistrée')
       onSaved()
-    } catch { 
+    } {
       toast.error('Erreur lors de l’enregistrement') 
     } finally {
       setLoading(false)
@@ -181,7 +181,7 @@ export default function ServicesPage() {
 
   const del = useMutation({
     mutationFn: async (id: string) => { 
-      await supabase.from('services').delete().eq('id', id) 
+      await (supabase.from('services') as any).delete().eq('id', id) 
     },
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['services'] })
@@ -189,8 +189,11 @@ export default function ServicesPage() {
     },
   })
 
-  const totalRevenue = items.reduce((s, i) => s + (Number(i.contract_amount) || 0), 0)
-  const um6pRevenue = items.reduce((s, i) => s + (Number(i.um6p_share) || 0), 0)
+  // CORRECTION : Cast global pour le calcul fluide et sans erreur TypeScript des totaux
+  const itemsData = items as any[]
+
+  const totalRevenue = itemsData.reduce((s, i) => s + (Number(i.contract_amount) || 0), 0)
+  const um6pRevenue = itemsData.reduce((s, i) => s + (Number(i.um6p_share) || 0), 0)
 
   const formatMAD = (v: number) => new Intl.NumberFormat('fr-MA', { style: 'currency', currency: 'MAD', maximumFractionDigits: 0 }).format(v)
 
@@ -206,10 +209,11 @@ export default function ServicesPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      {/* CORRECTION : grid-cols-2 md:grid-cols-4 pour la compatibilité mobile */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total prestations', value: items.length, fmt: false },
-          { label: 'En cours', value: items.filter((i) => i.status === 'active').length, fmt: false },
+          { label: 'Total prestations', value: itemsData.length, fmt: false },
+          { label: 'En cours', value: itemsData.filter((i) => i.status === 'active').length, fmt: false },
           { label: 'CA total', value: totalRevenue, fmt: true },
           { label: 'Part UM6P', value: um6pRevenue, fmt: true },
         ].map((s) => (
@@ -237,9 +241,9 @@ export default function ServicesPage() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
-            ) : items.length === 0 ? (
+            ) : itemsData.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune prestation enregistrée</td></tr>
-            ) : items.map((item) => (
+            ) : itemsData.map((item) => (
               <tr key={item.id} className="table-row">
                 <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{item.title}</td>
                 <td><span className="badge-info capitalize">{SERVICE_TYPES.find(t => t.value === item.service_type)?.label ?? item.service_type}</span></td>
