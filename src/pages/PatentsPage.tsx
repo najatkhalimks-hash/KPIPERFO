@@ -24,44 +24,67 @@ const TYPE_OPTIONS = [
   { value: 'autre', label: 'Autre PI' },
 ]
 
-function PatentModal({ item, researcherId, onClose, onSaved }: any) {
+interface PatentModalProps {
+  item: Patent | null
+  researcherId: string | undefined
+  onClose: () => void
+  onSaved: () => void
+}
+
+function PatentModal({ item, researcherId, onClose, onSaved }: PatentModalProps) {
+  // Cast temporaire en any pour éviter les frictions sur les propriétés de l'objet
+  const itemData = item as any
+
   const [form, setForm] = useState({
-    title: item?.title ?? '',
-    patent_type: item?.patent_type ?? 'brevet',
-    reference_number: item?.reference_number ?? '',
-    filing_date: item?.filing_date ?? '',
-    grant_date: item?.grant_date ?? '',
-    expiry_date: item?.expiry_date ?? '',
-    country: item?.country ?? '',
-    inventors: item?.inventors ?? '',
-    assignee: item?.assignee ?? 'UM6P',
-    status: item?.status ?? 'filed',
-    valorization: item?.valorization ?? '',
-    licensing_revenue: item?.licensing_revenue ?? '',
-    comment: item?.comment ?? '',
+    title: itemData?.title ?? '',
+    patent_type: itemData?.patent_type ?? 'brevet',
+    reference_number: itemData?.reference_number ?? '',
+    filing_date: itemData?.filing_date ?? '',
+    grant_date: itemData?.grant_date ?? '',
+    expiry_date: itemData?.expiry_date ?? '',
+    country: itemData?.country ?? '',
+    inventors: itemData?.inventors ?? '',
+    assignee: itemData?.assignee ?? 'UM6P',
+    status: itemData?.status ?? 'filed',
+    valorization: itemData?.valorization ?? '',
+    licensing_revenue: itemData?.licensing_revenue ? String(itemData.licensing_revenue) : '',
+    comment: itemData?.comment ?? '',
   })
   const [loading, setLoading] = useState(false)
-  const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!researcherId) return
     setLoading(true)
-    const payload = { ...form, researcher_id: researcherId }
+
+    const payload = {
+      ...form,
+      licensing_revenue: form.licensing_revenue ? Number(form.licensing_revenue) : null,
+      researcher_id: researcherId,
+    }
+
     try {
-      if (item) await supabase.from('patents').update(payload).eq('id', item.id)
-      else await supabase.from('patents').insert(payload)
-      toast.success('Brevet enregistré')
+      if (item?.id) {
+        await supabase.from('patents').update(payload).eq('id', item.id)
+      } else {
+        await supabase.from('patents').insert([payload])
+      }
+      toast.success('PI enregistrée avec succès')
       onSaved()
-    } catch { toast.error('Erreur') }
-    setLoading(false)
+    } catch { 
+      toast.error('Erreur lors de l’enregistrement') 
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-box max-w-xl">
         <div className="flex items-center justify-between p-6 border-b border-um6p-border">
-          <h2 className="text-lg font-semibold">{item ? 'Modifier' : 'Ajouter'} un titre de propriété intellectuelle</h2>
-          <button onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
+          <h2 className="text-lg font-semibold">{item ? 'Modifier' : 'Ajouter'} un titre de PI</h2>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
@@ -142,14 +165,23 @@ export default function PatentsPage() {
     queryKey: ['patents', profile?.id],
     enabled: !!profile?.id,
     queryFn: async () => {
-      const { data } = await supabase.from('patents').select('*').eq('researcher_id', profile!.id).order('filing_date', { ascending: false })
-      return data ?? []
+      const { data } = await supabase
+        .from('patents')
+        .select('*')
+        .eq('researcher_id', profile!.id)
+        .order('filing_date', { ascending: false })
+      return (data as Patent[]) ?? []
     },
   })
 
   const del = useMutation({
-    mutationFn: async (id: string) => { await supabase.from('patents').delete().eq('id', id) },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['patents'] }); toast.success('Supprimé') },
+    mutationFn: async (id: string) => { 
+      await supabase.from('patents').delete().eq('id', id) 
+    },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['patents'] })
+      toast.success('Supprimé') 
+    },
   })
 
   const stats = {
@@ -209,23 +241,26 @@ export default function PatentsPage() {
               <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
             ) : items.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucun titre de PI enregistré</td></tr>
-            ) : items.map((item) => (
-              <tr key={item.id} className="table-row">
-                <td><span className="badge-info capitalize">{TYPE_OPTIONS.find(t => t.value === item.patent_type)?.label ?? item.patent_type}</span></td>
-                <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{item.title}</td>
-                <td className="text-xs font-mono text-um6p-gray-dark">{item.reference_number}</td>
-                <td className="text-sm">{item.country}</td>
-                <td className="text-xs text-um6p-gray-dark">{item.filing_date}</td>
-                <td className="text-sm">{item.assignee}</td>
-                <td><StatusBadge status={item.status ?? 'filed'} /></td>
-                <td>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
-                    <button onClick={() => { if (confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            ) : items.map((item) => {
+              const itemData = item as any
+              return (
+                <tr key={item.id} className="table-row">
+                  <td><span className="badge-info capitalize">{TYPE_OPTIONS.find(t => t.value === itemData.patent_type)?.label ?? itemData.patent_type}</span></td>
+                  <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{itemData.title}</td>
+                  <td className="text-xs font-mono text-um6p-gray-dark">{itemData.reference_number}</td>
+                  <td className="text-sm">{itemData.country}</td>
+                  <td className="text-xs text-um6p-gray-dark">{itemData.filing_date}</td>
+                  <td className="text-sm">{itemData.assignee}</td>
+                  <td><StatusBadge status={itemData.status ?? 'filed'} /></td>
+                  <td>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
+                      <button onClick={() => { if (item.id && confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
