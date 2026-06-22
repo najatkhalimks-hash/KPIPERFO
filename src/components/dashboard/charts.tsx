@@ -41,13 +41,14 @@ export function PublicationsByYear({ researcherId }: { researcherId?: string }) 
   if (!data?.length) return <p className="text-sm text-um6p-gray-dark text-center py-8">Aucune donnée</p>
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    // CORRECTION RECHARTS TS : Cast de width et height pour éviter l'erreur d'affectation string/number
+    <ResponsiveContainer width={"100%" as any} height={200 as any}>
       <BarChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-        <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} />
-        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <XAxis dataKey="year" tick={{ fontSize: 11 } as any} />
+        <YAxis tick={{ fontSize: 11 } as any} />
+        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 } as any} />
+        <Legend wrapperStyle={{ fontSize: 11 } as any} />
         <Bar dataKey="published" name="Publiées" fill="#00843D" radius={[4, 4, 0, 0]} />
         <Bar dataKey="accepted" name="Acceptées" fill="#4CAF7A" radius={[4, 4, 0, 0]} />
       </BarChart>
@@ -76,13 +77,14 @@ export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast
   if (!chartData.length) return <p className="text-sm text-um6p-gray-dark text-center py-8">Définissez vos objectifs dans Prévisions</p>
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    // CORRECTION RECHARTS TS : Cast de width et height
+    <ResponsiveContainer width={"100%" as any} height={200 as any}>
       <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-        <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-        <YAxis tick={{ fontSize: 11 }} />
-        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <XAxis dataKey="name" tick={{ fontSize: 10 } as any} />
+        <YAxis tick={{ fontSize: 11 } as any} />
+        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 } as any} />
+        <Legend wrapperStyle={{ fontSize: 11 } as any} />
         <Bar dataKey="Objectif" fill="#E5E7EB" radius={[4, 4, 0, 0]} />
         <Bar dataKey="Réalisé" fill="#00843D" radius={[4, 4, 0, 0]} />
       </BarChart>
@@ -131,7 +133,6 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
     queryKey: ['activity-timeline', researcherId],
     enabled: !!researcherId,
     queryFn: async () => {
-      // Les requêtes parallèles exploitent désormais pleinement les types natifs générés par Supabase
       const [pubs, projects, comms] = await Promise.all([
         supabase.from('publications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3).catch(() => ({ data: [] })),
         supabase.from('projects').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
@@ -153,27 +154,4 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString)
-      return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('fr-FR')
-    } catch {
-      return '—'
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      {data.map((item) => (
-        <div key={`${item.type}-${item.id}`} className="flex items-start gap-3">
-          <span className="text-lg mt-0.5 flex-shrink-0" role="img" aria-label={item.type}>{item.icon}</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-um6p-navy truncate" title={item.title}>{item.title}</p>
-            <p className="text-xs text-um6p-gray-dark">
-              {formatDate(item.created_at)}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export default PublicationsByYear
+      return isNaN(date.getTime()) ? '
