@@ -1,4 +1,4 @@
-// Training page stub - full implementation follows same pattern as Publications
+// Training page
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -8,7 +8,15 @@ import toast from 'react-hot-toast'
 import { Plus, Trash2, Edit2 } from 'lucide-react'
 import type { Training } from '@/types/database'
 
-type TrainingForm = { semester: string; training_type: string; activity: string; program: string; planned_hours: number; realized_hours: number; comment: string }
+type TrainingForm = { 
+  semester: string; 
+  training_type: string; 
+  activity: string; 
+  program: string; 
+  planned_hours: number; 
+  realized_hours: number; 
+  comment: string 
+}
 
 const ACTIVITIES: Record<string, string[]> = {
   formation_initiale: ['Animation cours', 'Conception cours', 'Préparation examens', 'Encadrement PFE', 'Encadrement stages'],
@@ -17,34 +25,48 @@ const ACTIVITIES: Record<string, string[]> = {
   autre: ['Autre activité'],
 }
 
-function TrainingModal({ training, researcherId, onClose, onSaved }: { training?: Training | null; researcherId?: string; onClose: () => void; onSaved: () => void }) {
+interface TrainingModalProps {
+  training: Training | null
+  researcherId: string | undefined
+  onClose: () => void
+  onSaved: () => void
+}
+
+function TrainingModal({ training, researcherId, onClose, onSaved }: TrainingModalProps) {
+  const trData = training as any
+
   const [form, setForm] = useState<TrainingForm>({
-    semester: training?.semester ?? 'S1',
-    training_type: training?.training_type ?? 'formation_initiale',
-    activity: training?.activity ?? '',
-    program: training?.program ?? '',
-    planned_hours: training?.planned_hours ?? 0,
-    realized_hours: training?.realized_hours ?? 0,
-    comment: training?.comment ?? '',
+    semester: trData?.semester ?? 'S1',
+    training_type: trData?.training_type ?? 'formation_initiale',
+    activity: trData?.activity ?? '',
+    program: trData?.program ?? '',
+    planned_hours: trData?.planned_hours ?? 0,
+    realized_hours: trData?.realized_hours ?? 0,
+    comment: trData?.comment ?? '',
   })
   const [loading, setLoading] = useState(false)
   const set = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!researcherId) return
     setLoading(true)
+
     const payload = { ...form, researcher_id: researcherId }
     try {
-      if (training) {
+      if (training?.id) {
         await supabase.from('trainings').update(payload).eq('id', training.id)
         toast.success('Activité mise à jour')
       } else {
-        await supabase.from('trainings').insert(payload)
+        await supabase.from('trainings').insert([payload])
         toast.success('Activité ajoutée')
       }
       onSaved()
-    } catch { toast.error('Erreur') }
-    setLoading(false)
+    } catch { 
+      toast.error('Erreur lors de l’enregistrement') 
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -52,7 +74,7 @@ function TrainingModal({ training, researcherId, onClose, onSaved }: { training?
       <div className="modal-box max-w-lg">
         <div className="flex items-center justify-between p-6 border-b border-um6p-border">
           <h2 className="text-lg font-semibold">{training ? 'Modifier' : 'Ajouter'} une activité</h2>
-          <button onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -77,7 +99,7 @@ function TrainingModal({ training, researcherId, onClose, onSaved }: { training?
             <label className="label">Activité</label>
             <select className="input-field" value={form.activity} onChange={(e) => set('activity', e.target.value)}>
               <option value="">Sélectionner</option>
-              {(ACTIVITIES[form.training_type] ?? []).map((a) => <option key={a}>{a}</option>)}
+              {(ACTIVITIES[form.training_type] ?? []).map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div>
@@ -121,24 +143,29 @@ export default function TrainingPage() {
     enabled: !!profile?.id,
     queryFn: async () => {
       const { data } = await supabase.from('trainings').select('*').eq('researcher_id', profile!.id).order('training_type')
-      return data ?? []
+      return (data as Training[]) ?? []
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { await supabase.from('trainings').delete().eq('id', id) },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['trainings'] }); toast.success('Activité supprimée') },
+    mutationFn: async (id: string) => { 
+      await supabase.from('trainings').delete().eq('id', id) 
+    },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['trainings'] })
+      toast.success('Activité supprimée') 
+    },
   })
 
-  const filtered = semFilter === 'all' ? trainings : trainings.filter((t) => t.semester === semFilter)
+  const filtered = semFilter === 'all' ? trainings : trainings.filter((t: any) => t.semester === semFilter)
 
   const totals = {
-    initiale_planned: trainings.filter((t) => t.training_type === 'formation_initiale').reduce((s, t) => s + (t.planned_hours ?? 0), 0),
-    initiale_realized: trainings.filter((t) => t.training_type === 'formation_initiale').reduce((s, t) => s + (t.realized_hours ?? 0), 0),
-    executive_planned: trainings.filter((t) => t.training_type === 'formation_executive').reduce((s, t) => s + (t.planned_hours ?? 0), 0),
-    executive_realized: trainings.filter((t) => t.training_type === 'formation_executive').reduce((s, t) => s + (t.realized_hours ?? 0), 0),
-    doctorale_planned: trainings.filter((t) => t.training_type === 'formation_doctorale').reduce((s, t) => s + (t.planned_hours ?? 0), 0),
-    doctorale_realized: trainings.filter((t) => t.training_type === 'formation_doctorale').reduce((s, t) => s + (t.realized_hours ?? 0), 0),
+    initiale_planned: trainings.filter((t: any) => t.training_type === 'formation_initiale').reduce((s, t: any) => s + (t.planned_hours ?? 0), 0),
+    initiale_realized: trainings.filter((t: any) => t.training_type === 'formation_initiale').reduce((s, t: any) => s + (t.realized_hours ?? 0), 0),
+    executive_planned: trainings.filter((t: any) => t.training_type === 'formation_executive').reduce((s, t: any) => s + (t.planned_hours ?? 0), 0),
+    executive_realized: trainings.filter((t: any) => t.training_type === 'formation_executive').reduce((s, t: any) => s + (t.realized_hours ?? 0), 0),
+    doctorale_planned: trainings.filter((t: any) => t.training_type === 'formation_doctorale').reduce((s, t: any) => s + (t.planned_hours ?? 0), 0),
+    doctorale_realized: trainings.filter((t: any) => t.training_type === 'formation_doctorale').reduce((s, t: any) => s + (t.realized_hours ?? 0), 0),
   }
 
   return (
@@ -153,7 +180,6 @@ export default function TrainingPage() {
         </button>
       </div>
 
-      {/* Totals summary */}
       <div className="grid grid-cols-3 gap-4">
         {[
           { type: 'Formation initiale', planned: totals.initiale_planned, realized: totals.initiale_realized, icon: '📚' },
@@ -170,13 +196,12 @@ export default function TrainingPage() {
               <span className="text-um6p-green font-semibold">Réalisé: {s.realized}h</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill bg-um6p-green" style={{ width: `${s.planned > 0 ? Math.min(100, Math.round(s.realized / s.planned * 100)) : 0}%` }} />
+              <div className="progress-fill bg-um6p-green" style={{ width: `${s.planned > 0 ? Math.min(100, Math.round((s.realized / s.planned) * 100)) : 0}%` }} />
             </div>
           </div>
         ))}
       </div>
 
-      {/* Filters */}
       <div className="card p-4 flex gap-2">
         {['all', 'S1', 'S2'].map((s) => (
           <button key={s} onClick={() => setSemFilter(s)}
@@ -206,15 +231,19 @@ export default function TrainingPage() {
             ) : filtered.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune activité enregistrée</td></tr>
             ) : filtered.map((tr) => {
-              const pct = tr.planned_hours > 0 ? Math.round((tr.realized_hours / tr.planned_hours) * 100) : null
+              const trData = tr as any
+              const planned = trData.planned_hours ?? 0
+              const realized = trData.realized_hours ?? 0
+              const pct = planned > 0 ? Math.round((realized / planned) * 100) : null
+
               return (
                 <tr key={tr.id} className="table-row">
-                  <td><span className="badge-info">{tr.semester}</span></td>
-                  <td className="text-xs text-um6p-gray-dark">{tr.training_type?.replace('_', ' ')}</td>
-                  <td className="text-sm font-medium text-um6p-navy">{tr.activity}</td>
-                  <td className="text-sm text-um6p-gray-dark">{tr.program}</td>
-                  <td className="text-sm text-center">{tr.planned_hours}h</td>
-                  <td className="text-sm font-semibold text-center text-um6p-green">{tr.realized_hours}h</td>
+                  <td><span className="badge-info">{trData.semester}</span></td>
+                  <td className="text-xs text-um6p-gray-dark">{trData.training_type?.replace('_', ' ')}</td>
+                  <td className="text-sm font-medium text-um6p-navy">{trData.activity}</td>
+                  <td className="text-sm text-um6p-gray-dark">{trData.program}</td>
+                  <td className="text-sm text-center">{planned}h</td>
+                  <td className="text-sm font-semibold text-center text-um6p-green">{realized}h</td>
                   <td>
                     {pct !== null && (
                       <div className="flex items-center gap-2">
@@ -228,7 +257,7 @@ export default function TrainingPage() {
                   <td>
                     <div className="flex gap-1">
                       <button onClick={() => { setEditing(tr); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
-                      <button onClick={() => { if (confirm(t('common.confirm_delete'))) deleteMutation.mutate(tr.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                      <button onClick={() => { if (tr.id && confirm(t('common.confirm_delete'))) deleteMutation.mutate(tr.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
