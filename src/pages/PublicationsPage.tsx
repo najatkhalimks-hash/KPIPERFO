@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
-import { Plus, Search, RefreshCw, ExternalLink, Trash2, Edit2, Upload } from 'lucide-react'
+import { Plus, Search, ExternalLink, Trash2, Edit2, FileText, Award, TrendingUp } from 'lucide-react'
 import StatusBadge from '@/components/ui/StatusBadge'
 import PublicationModal from '@/components/modules/PublicationModal'
 import type { Publication } from '@/types/database'
@@ -28,13 +28,14 @@ export default function PublicationsPage() {
         .eq('researcher_id', profile!.id)
         .order('year', { ascending: false })
       if (error) throw error
-      return data ?? []
+      return (data as Publication[]) ?? []
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from('publications').delete().eq('id', id)
+      // CORRECTION : Cast pour rompre l'inférence stricte 'never' de Supabase
+      await (supabase.from('publications') as any).delete().eq('id', id)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['publications'] })
@@ -42,7 +43,10 @@ export default function PublicationsPage() {
     },
   })
 
-  const filtered = publications.filter((p) => {
+  // CORRECTION : Cast global de sécurité pour le filtrage et les calculs d'agrégation
+  const publicationsData = publications as any[]
+
+  const filtered = publicationsData.filter((p) => {
     const matchSearch = !search ||
       p.title?.toLowerCase().includes(search.toLowerCase()) ||
       p.authors?.toLowerCase().includes(search.toLowerCase()) ||
@@ -52,10 +56,10 @@ export default function PublicationsPage() {
   })
 
   const stats = {
-    total: publications.length,
-    published: publications.filter((p) => p.publication_stage === 'published').length,
-    citations: publications.reduce((s, p) => s + (p.citation_count ?? 0), 0),
-    q1q2: publications.filter((p) => p.quartile === 'Q1' || p.quartile === 'Q2').length,
+    total: publicationsData.length,
+    published: publicationsData.filter((p) => p.publication_stage === 'published').length,
+    citations: publicationsData.reduce((s, p) => s + (p.citation_count ?? 0), 0),
+    q1q2: publicationsData.filter((p) => p.quartile === 'Q1' || p.quartile === 'Q2').length,
   }
 
   return (
@@ -76,15 +80,17 @@ export default function PublicationsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: stats.total, icon: '📄' },
-          { label: 'Publiées', value: stats.published, icon: '✅' },
-          { label: 'Citations', value: stats.citations, icon: '🔗' },
-          { label: 'Q1/Q2', value: stats.q1q2, icon: '⭐' },
+          { label: 'Total', value: stats.total, icon: FileText, color: 'text-um6p-navy' },
+          { label: 'Publiées', value: stats.published, icon: Award, color: 'text-um6p-green' },
+          { label: 'Citations', value: stats.citations, icon: TrendingUp, color: 'text-um6p-gold' },
+          { label: 'Q1/Q2', value: stats.q1q2, icon: Plus, color: 'text-um6p-navy' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
-            <span className="text-2xl">{s.icon}</span>
+            <div className={`p-2 rounded-lg bg-um6p-gray ${s.color}`}>
+              <s.icon size={20} />
+            </div>
             <div>
-              <p className="text-2xl font-bold text-um6p-navy">{s.value}</p>
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
               <p className="text-xs text-um6p-gray-dark">{s.label}</p>
             </div>
           </div>
