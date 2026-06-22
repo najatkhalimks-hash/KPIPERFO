@@ -44,21 +44,21 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: ServiceModalProp
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!researcherId) return
-    setLoading(true) // CORRECTION : Passage à true au démarrage de la requête
+    setLoading(true)
     
     const payload = {
       title: form.title,
       service_type: form.service_type,
       client_name: form.client_name,
       client_type: form.client_type,
-      start_date: form.start_date,
+      start_date: form.start_date || null,
       end_date: form.end_date || null,
       contract_amount: form.contract_amount ? Number(form.contract_amount) : null,
       um6p_share: form.um6p_share ? Number(form.um6p_share) : null,
       status: form.status,
-      deliverables: form.deliverables,
-      team_members: form.team_members,
-      comment: form.comment,
+      deliverables: form.deliverables || null,
+      team_members: form.team_members || null,
+      comment: form.comment || null,
       researcher_id: researcherId,
     }
 
@@ -70,7 +70,7 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: ServiceModalProp
       }
       toast.success('Prestation enregistrée')
       onSaved()
-    } {
+    } catch (error) {
       toast.error('Erreur lors de l’enregistrement') 
     } finally {
       setLoading(false)
@@ -152,7 +152,7 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: ServiceModalProp
           </div>
           <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={loading} className="btn-primary">{loading ? '...' : 'Enregistrer'}</button>
+            <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
           </div>
         </form>
       </div>
@@ -189,7 +189,6 @@ export default function ServicesPage() {
     },
   })
 
-  // CORRECTION : Cast global pour le calcul fluide et sans erreur TypeScript des totaux
   const itemsData = items as any[]
 
   const totalRevenue = itemsData.reduce((s, i) => s + (Number(i.contract_amount) || 0), 0)
@@ -209,7 +208,6 @@ export default function ServicesPage() {
         </button>
       </div>
 
-      {/* CORRECTION : grid-cols-2 md:grid-cols-4 pour la compatibilité mobile */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Total prestations', value: itemsData.length, fmt: false },
@@ -248,7 +246,9 @@ export default function ServicesPage() {
                 <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{item.title}</td>
                 <td><span className="badge-info capitalize">{SERVICE_TYPES.find(t => t.value === item.service_type)?.label ?? item.service_type}</span></td>
                 <td className="text-sm">{item.client_name}</td>
-                <td className="text-xs text-um6p-gray-dark">{item.start_date} → {item.end_date}</td>
+                <td className="text-xs text-um6p-gray-dark whitespace-nowrap">
+                  {item.start_date ? new Date(item.start_date).toLocaleDateString('fr-FR') : '-'} → {item.end_date ? new Date(item.end_date).toLocaleDateString('fr-FR') : '-'}
+                </td>
                 <td className="text-sm font-semibold text-um6p-navy">{item.contract_amount ? formatMAD(Number(item.contract_amount)) : '-'}</td>
                 <td className="text-sm text-um6p-green font-semibold">{item.um6p_share ? formatMAD(Number(item.um6p_share)) : '-'}</td>
                 <td><StatusBadge status={item.status ?? 'active'} /></td>
