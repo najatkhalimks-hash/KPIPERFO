@@ -308,7 +308,6 @@ export interface Database {
   }
 }
 
-// KPI definitions
 export interface KpiDefinition {
   key: string
   labelFr: string
@@ -334,4 +333,11 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
   { key: 'budget_obtained', labelFr: 'Budget total obtenu (MAD)', labelEn: 'Total budget obtained (MAD)', unit: 'MAD', category: 'projets' },
   { key: 'projects_international', labelFr: 'Projets internationaux', labelEn: 'International projects', category: 'projets' },
   { key: 'hours_initial', labelFr: 'H. Formation initiale (S1+S2)', labelEn: 'Initial training hours (S1+S2)', unit: 'h', category: 'formation' },
-  { key: 'hours_executive', labelFr: 'H. Formation exécutive (S1+S2)', labelEn: 'Executive training hours (S1+S2
+  { key: 'hours_executive', labelFr: 'H. Formation exécutive (S1+S2)', labelEn: 'Executive training hours (S1+S2)', unit: 'h', category: 'formation' },
+  { key: 'hours_doctoral', labelFr: 'H. Formation doctorale (S1+S2)', labelEn: 'Doctoral training hours (S1+S2)', unit: 'h', category: 'formation' },
+  { key: 'phd_supervised', labelFr: 'Doctorants encadrés', labelEn: 'PhD students supervised', category: 'encadrement' },
+  { key: 'masters_supervised', labelFr: 'PFE / Masters encadrés', labelEn: 'PFE / Masters supervised', category: 'encadrement' },
+  { key: 'services_count', labelFr: 'Nombre de prestations', labelEn: 'Number of services', category: 'prestations' },
+  { key: 'services_revenue', labelFr: 'Revenus générés (MAD)', labelEn: 'Revenue generated (MAD)', unit: 'MAD', category: 'prestations' },
+  { key: 'missions_led', labelFr: 'Missions pilotées', labelEn: 'Missions led', category: 'prestations' }
+];
