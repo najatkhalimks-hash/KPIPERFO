@@ -48,6 +48,7 @@ export interface Profile {
   bio?: string
   start_date?: string
   role?: UserRole
+  is_active?: boolean // <--- AJOUTEZ CETTE LIGNE (indispensable pour AdminPage)
   avatar_url?: string
   created_at?: string
   updated_at?: string
