@@ -25,6 +25,13 @@ const ACTIVITIES: Record<string, string[]> = {
   autre: ['Autre activité'],
 }
 
+const TRAINING_TYPE_LABELS: Record<string, string> = {
+  formation_initiale: 'Formation initiale',
+  formation_executive: 'Formation exécutive',
+  formation_doctorale: 'Formation doctorale',
+  autre: 'Autre',
+}
+
 interface TrainingModalProps {
   training: Training | null
   researcherId: string | undefined
@@ -52,13 +59,23 @@ function TrainingModal({ training, researcherId, onClose, onSaved }: TrainingMod
     if (!researcherId) return
     setLoading(true)
 
-    const payload = { ...form, researcher_id: researcherId }
+    const payload = {
+      semester: form.semester,
+      training_type: form.training_type,
+      activity: form.activity,
+      program: form.program || null,
+      planned_hours: Number(form.planned_hours) || 0,
+      realized_hours: Number(form.realized_hours) || 0,
+      comment: form.comment || null,
+      researcher_id: researcherId,
+    }
+
     try {
       if (training?.id) {
-        await supabase.from('trainings').update(payload).eq('id', training.id)
+        await (supabase.from('trainings') as any).update(payload).eq('id', training.id)
         toast.success('Activité mise à jour')
       } else {
-        await supabase.from('trainings').insert([payload])
+        await (supabase.from('trainings') as any).insert([payload])
         toast.success('Activité ajoutée')
       }
       onSaved()
@@ -76,7 +93,7 @@ function TrainingModal({ training, researcherId, onClose, onSaved }: TrainingMod
           <h2 className="text-lg font-semibold">{training ? 'Modifier' : 'Ajouter'} une activité</h2>
           <button type="button" onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Semestre</label>
@@ -96,28 +113,28 @@ function TrainingModal({ training, researcherId, onClose, onSaved }: TrainingMod
             </div>
           </div>
           <div>
-            <label className="label">Activité</label>
-            <select className="input-field" value={form.activity} onChange={(e) => set('activity', e.target.value)}>
-              <option value="">Sélectionner</option>
+            <label className="label">Activité *</label>
+            <select required className="input-field" value={form.activity} onChange={(e) => set('activity', e.target.value)}>
+              <option value="">Sélectionner une activité</option>
               {(ACTIVITIES[form.training_type] ?? []).map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div>
-            <label className="label">Filière / Programme</label>
+            <label className="label">Filière / Programme / Code cours</label>
             <input className="input-field" value={form.program} onChange={(e) => set('program', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">H. Prévues</label>
-              <input type="number" min={0} className="input-field" value={form.planned_hours} onChange={(e) => set('planned_hours', Number(e.target.value))} />
+              <label className="label">Heures Prévues</label>
+              <input type="number" min={0} className="input-field" value={form.planned_hours} onChange={(e) => set('planned_hours', e.target.value)} />
             </div>
             <div>
-              <label className="label">H. Réalisées</label>
-              <input type="number" min={0} className="input-field" value={form.realized_hours} onChange={(e) => set('realized_hours', Number(e.target.value))} />
+              <label className="label">Heures Réalisées</label>
+              <input type="number" min={0} className="input-field" value={form.realized_hours} onChange={(e) => set('realized_hours', e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="label">Commentaire</label>
+            <label className="label">Commentaire ou Détails</label>
             <textarea rows={2} className="input-field resize-none" value={form.comment} onChange={(e) => set('comment', e.target.value)} />
           </div>
           <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
@@ -149,7 +166,7 @@ export default function TrainingPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => { 
-      await supabase.from('trainings').delete().eq('id', id) 
+      await (supabase.from('trainings') as any).delete().eq('id', id) 
     },
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['trainings'] })
@@ -157,15 +174,16 @@ export default function TrainingPage() {
     },
   })
 
-  const filtered = semFilter === 'all' ? trainings : trainings.filter((t: any) => t.semester === semFilter)
+  const trainingsData = trainings as any[]
+  const filtered = semFilter === 'all' ? trainingsData : trainingsData.filter((t) => t.semester === semFilter)
 
   const totals = {
-    initiale_planned: trainings.filter((t: any) => t.training_type === 'formation_initiale').reduce((s, t: any) => s + (t.planned_hours ?? 0), 0),
-    initiale_realized: trainings.filter((t: any) => t.training_type === 'formation_initiale').reduce((s, t: any) => s + (t.realized_hours ?? 0), 0),
-    executive_planned: trainings.filter((t: any) => t.training_type === 'formation_executive').reduce((s, t: any) => s + (t.planned_hours ?? 0), 0),
-    executive_realized: trainings.filter((t: any) => t.training_type === 'formation_executive').reduce((s, t: any) => s + (t.realized_hours ?? 0), 0),
-    doctorale_planned: trainings.filter((t: any) => t.training_type === 'formation_doctorale').reduce((s, t: any) => s + (t.planned_hours ?? 0), 0),
-    doctorale_realized: trainings.filter((t: any) => t.training_type === 'formation_doctorale').reduce((s, t: any) => s + (t.realized_hours ?? 0), 0),
+    initiale_planned: trainingsData.filter((t) => t.training_type === 'formation_initiale').reduce((s, t) => s + (t.planned_hours ?? 0), 0),
+    initiale_realized: trainingsData.filter((t) => t.training_type === 'formation_initiale').reduce((s, t) => s + (t.realized_hours ?? 0), 0),
+    executive_planned: trainingsData.filter((t) => t.training_type === 'formation_executive').reduce((s, t) => s + (t.planned_hours ?? 0), 0),
+    executive_realized: trainingsData.filter((t) => t.training_type === 'formation_executive').reduce((s, t) => s + (t.realized_hours ?? 0), 0),
+    doctorale_planned: trainingsData.filter((t) => t.training_type === 'formation_doctorale').reduce((s, t) => s + (t.planned_hours ?? 0), 0),
+    doctorale_realized: trainingsData.filter((t) => t.training_type === 'formation_doctorale').reduce((s, t) => s + (t.realized_hours ?? 0), 0),
   }
 
   return (
@@ -180,7 +198,7 @@ export default function TrainingPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { type: 'Formation initiale', planned: totals.initiale_planned, realized: totals.initiale_realized, icon: '📚' },
           { type: 'Formation exécutive', planned: totals.executive_planned, realized: totals.executive_realized, icon: '💼' },
@@ -231,28 +249,27 @@ export default function TrainingPage() {
             ) : filtered.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune activité enregistrée</td></tr>
             ) : filtered.map((tr) => {
-              const trData = tr as any
-              const planned = trData.planned_hours ?? 0
-              const realized = trData.realized_hours ?? 0
+              const planned = tr.planned_hours ?? 0
+              const realized = tr.realized_hours ?? 0
               const pct = planned > 0 ? Math.round((realized / planned) * 100) : null
 
               return (
                 <tr key={tr.id} className="table-row">
-                  <td><span className="badge-info">{trData.semester}</span></td>
-                  <td className="text-xs text-um6p-gray-dark">{trData.training_type?.replace('_', ' ')}</td>
-                  <td className="text-sm font-medium text-um6p-navy">{trData.activity}</td>
-                  <td className="text-sm text-um6p-gray-dark">{trData.program}</td>
+                  <td><span className="badge-info">{tr.semester}</span></td>
+                  <td className="text-xs text-um6p-gray-dark whitespace-nowrap">{TRAINING_TYPE_LABELS[tr.training_type] ?? tr.training_type}</td>
+                  <td className="text-sm font-medium text-um6p-navy">{tr.activity}</td>
+                  <td className="text-sm text-um6p-gray-dark">{tr.program ?? '-'}</td>
                   <td className="text-sm text-center">{planned}h</td>
                   <td className="text-sm font-semibold text-center text-um6p-green">{realized}h</td>
                   <td>
-                    {pct !== null && (
+                    {pct !== null ? (
                       <div className="flex items-center gap-2">
                         <div className="progress-bar w-16">
                           <div className="progress-fill bg-um6p-green" style={{ width: `${Math.min(100, pct)}%` }} />
                         </div>
                         <span className="text-xs text-um6p-gray-dark">{pct}%</span>
                       </div>
-                    )}
+                    ) : '-'}
                   </td>
                   <td>
                     <div className="flex gap-1">
