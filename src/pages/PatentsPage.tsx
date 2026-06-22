@@ -65,10 +65,12 @@ function PatentModal({ item, researcherId, onClose, onSaved }: PatentModalProps)
     }
 
     try {
+      // Cast explicite de la table pour briser l'erreur d'inférence stricte 'never' de Supabase
+      const table = supabase.from('patents') as any
       if (item?.id) {
-        await supabase.from('patents').update(payload).eq('id', item.id)
+        await table.update(payload).eq('id', item.id)
       } else {
-        await supabase.from('patents').insert([payload])
+        await table.insert([payload])
       }
       toast.success('PI enregistrée avec succès')
       onSaved()
@@ -188,7 +190,7 @@ export default function PatentsPage() {
     total: items.length,
     granted: items.filter((i) => i.status === 'granted').length,
     pending: items.filter((i) => ['filed', 'pending'].includes(i.status ?? '')).length,
-    brevets: items.filter((i) => i.patent_type === 'brevet').length,
+    brevets: items.filter((i) => (i as any).patent_type === 'brevet').length,
   }
 
   return (
@@ -245,6 +247,7 @@ export default function PatentsPage() {
               const itemData = item as any
               return (
                 <tr key={item.id} className="table-row">
+                  {/* Correction de l'erreur TS2339 en utilisant itemData pour contourner l'absence de patent_type sur l'interface stricte */}
                   <td><span className="badge-info capitalize">{TYPE_OPTIONS.find(t => t.value === itemData.patent_type)?.label ?? itemData.patent_type}</span></td>
                   <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{itemData.title}</td>
                   <td className="text-xs font-mono text-um6p-gray-dark">{itemData.reference_number}</td>
