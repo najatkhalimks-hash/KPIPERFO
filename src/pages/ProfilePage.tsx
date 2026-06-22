@@ -8,7 +8,7 @@ const GRADES = ['Professeur', 'Professeur Habilité', 'Professeur Assistant', 'C
 const SPECIALTIES = ['Sciences Mathématiques', 'Informatique & IA', 'Sciences Physiques', 'Chimie', 'Biologie', 'Agronomie', 'Géosciences', 'Sciences de l\'Ingénieur', 'Sciences Sociales', 'Management', 'Économie', 'Droit', 'Médecine', 'Autre']
 
 export default function ProfilePage() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile } = useAuth()
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -33,7 +33,7 @@ export default function ProfilePage() {
     biography: '',
   })
   const [loading, setLoading] = useState(false)
-  const set = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }))
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }))
 
   useEffect(() => {
     if (profile) {
@@ -45,13 +45,13 @@ export default function ProfilePage() {
         specialty: profile.specialty ?? '',
         department: profile.department ?? '',
         laboratory: profile.laboratory ?? '',
-        research_axes: profile.research_axes ?? '',
+        research_axes: (profile.research_axes as string) ?? '',
         orcid_id: profile.orcid_id ?? '',
         google_scholar_url: profile.google_scholar_url ?? '',
         researchgate_url: profile.researchgate_url ?? '',
         linkedin_url: profile.linkedin_url ?? '',
         personal_website: profile.personal_website ?? '',
-        hindex: profile.hindex ?? '',
+        hindex: profile.hindex ? String(profile.hindex) : '',
         scopus_id: profile.scopus_id ?? '',
         wos_id: profile.wos_id ?? '',
         phd_date: profile.phd_date ?? '',
@@ -65,13 +65,24 @@ export default function ProfilePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!profile?.id) return
     setLoading(true)
+
+    const payload = {
+      ...form,
+      hindex: form.hindex ? Number(form.hindex) : null,
+    }
+
     try {
-      await supabase.from('profiles').update(form).eq('id', profile!.id)
-      await refreshProfile()
+      await supabase.from('profiles').update(payload).eq('id', profile.id)
       toast.success('Profil mis à jour avec succès')
-    } catch { toast.error('Erreur lors de la mise à jour') }
-    setLoading(false)
+      // Actualise en douceur l'interface pour recharger le profil mis à jour
+      setTimeout(() => window.location.reload(), 800)
+    } catch { 
+      toast.error('Erreur lors de la mise à jour') 
+    } finally {
+      setLoading(false)
+    }
   }
 
   const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
