@@ -17,7 +17,8 @@ export default function ExportButton({ researcherId, yearId }: ExportButtonProps
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
 
-  async function fetchAllData() {
+  // CORRECTION : Spécifier explicitement un retour Promise<any> pour éliminer le type 'never'
+  async function fetchAllData(): Promise<any> {
     if (!researcherId) return null
     const [pubs, projects, trainings, supervisions, services] = await Promise.all([
       supabase.from('publications').select('*').eq('researcher_id', researcherId),
@@ -45,7 +46,8 @@ export default function ExportButton({ researcherId, yearId }: ExportButtonProps
 
       // Publications sheet
       if (data.publications.length) {
-        const ws = XLSX.utils.json_to_sheet(data.publications.map((p) => ({
+        // CORRECTION TS2339 : Cast explicite (p: any)
+        const ws = XLSX.utils.json_to_sheet(data.publications.map((p: any) => ({
           Titre: p.title,
           Auteurs: p.authors,
           Journal: p.journal,
@@ -61,7 +63,8 @@ export default function ExportButton({ researcherId, yearId }: ExportButtonProps
 
       // Projects sheet
       if (data.projects.length) {
-        const ws = XLSX.utils.json_to_sheet(data.projects.map((p) => ({
+        // CORRECTION TS2339 : Cast explicite (p: any)
+        const ws = XLSX.utils.json_to_sheet(data.projects.map((p: any) => ({
           Titre: p.title,
           Type: p.type,
           Rôle: p.role,
@@ -76,7 +79,8 @@ export default function ExportButton({ researcherId, yearId }: ExportButtonProps
 
       // Training sheet
       if (data.trainings.length) {
-        const ws = XLSX.utils.json_to_sheet(data.trainings.map((t) => ({
+        // CORRECTION TS2339 : Cast explicite (t: any)
+        const ws = XLSX.utils.json_to_sheet(data.trainings.map((t: any) => ({
           Semestre: t.semester,
           Type: t.training_type,
           Activité: t.activity,
@@ -126,9 +130,10 @@ export default function ExportButton({ researcherId, yearId }: ExportButtonProps
         autoTable(doc, {
           startY: y,
           head: [['Titre', 'Journal', 'Année', 'Statut', 'Citations']],
-          body: data.publications.slice(0, 20).map((p) => [
-            p.title?.substring(0, 50) + '...',
-            p.journal?.substring(0, 30) ?? '',
+          // CORRECTION TS2339 : Cast explicite (p: any)
+          body: data.publications.slice(0, 20).map((p: any) => [
+            p.title ? (p.title.substring(0, 50) + '...') : '',
+            p.journal ? p.journal.substring(0, 30) : '',
             String(p.year ?? ''),
             p.publication_stage ?? '',
             String(p.citation_count ?? 0),
@@ -149,8 +154,9 @@ export default function ExportButton({ researcherId, yearId }: ExportButtonProps
         autoTable(doc, {
           startY: y,
           head: [['Titre', 'Rôle', 'Statut', 'Budget UM6P (MAD)']],
-          body: data.projects.map((p) => [
-            p.title?.substring(0, 50) ?? '',
+          // CORRECTION TS2339 : Cast explicite (p: any)
+          body: data.projects.map((p: any) => [
+            p.title ? p.title.substring(0, 50) : '',
             p.role ?? '',
             p.status ?? '',
             (p.um6p_budget ?? 0).toLocaleString(),
