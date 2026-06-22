@@ -19,25 +19,26 @@ function useDashboardData(researcherId: string | undefined, yearId: string | nul
     queryFn: async () => {
       if (!researcherId) return null
 
+      // CORRECTION : Cast en any pour éviter les erreurs d'inférence de schémas stricts Supabase
       const [pubs, projects, trainings, supervisions, comms, patents, services, forecasts] = await Promise.all([
-        supabase.from('publications').select('*').eq('researcher_id', researcherId),
-        supabase.from('projects').select('*').eq('researcher_id', researcherId),
-        supabase.from('trainings').select('*').eq('researcher_id', researcherId),
-        supabase.from('supervisions').select('*').eq('researcher_id', researcherId),
-        supabase.from('communications').select('*').eq('researcher_id', researcherId),
-        supabase.from('patents').select('*').eq('researcher_id', researcherId),
-        supabase.from('service_missions').select('*').eq('researcher_id', researcherId),
-        supabase.from('forecasts').select('*').eq('researcher_id', researcherId).eq('academic_year_id', yearId ?? ''),
+        supabase.from('publications').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('projects').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('trainings').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('supervisions').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('communications').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('patents').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('service_missions').select('*').eq('researcher_id', researcherId) as any,
+        supabase.from('forecasts').select('*').eq('researcher_id', researcherId).eq('academic_year_id', yearId ?? '') as any,
       ])
 
-      const pubsData = pubs.data ?? []
-      const projectsData = projects.data ?? []
-      const trainingsData = trainings.data ?? []
-      const supervisionsData = supervisions.data ?? []
-      const commsData = comms.data ?? []
-      const patentsData = patents.data ?? []
-      const servicesData = services.data ?? []
-      const forecastsData = forecasts.data ?? []
+      const pubsData = (pubs.data ?? []) as any[]
+      const projectsData = (projects.data ?? []) as any[]
+      const trainingsData = (trainings.data ?? []) as any[]
+      const supervisionsData = (supervisions.data ?? []) as any[]
+      const commsData = (comms.data ?? []) as any[]
+      const patentsData = (patents.data ?? []) as any[]
+      const servicesData = (services.data ?? []) as any[]
+      const forecastsData = (forecasts.data ?? []) as any[]
 
       const kpis = {
         publications_total: pubsData.length,
@@ -45,7 +46,7 @@ function useDashboardData(researcherId: string | undefined, yearId: string | nul
         publications_accepted: pubsData.filter((p) => p.publication_stage === 'accepted').length,
         citations_total: pubsData.reduce((s, p) => s + (p.citation_count ?? 0), 0),
         publications_open_access: pubsData.filter((p) => p.is_open_access).length,
-        conferences_international: commsData.filter((c) => c.scope === 'international').length,
+        conferences_international: commsData.filter((c) => c.scope === 'international' || c.is_international === true).length,
         communications_invited: commsData.filter((c) => c.is_invited).length,
         patents_filed: patentsData.filter((p) => ['filed', 'examination', 'granted', 'exploited'].includes(p.status ?? '')).length,
         patents_granted: patentsData.filter((p) => p.status === 'granted').length,
@@ -79,7 +80,6 @@ export default function DashboardPage() {
   const { data, isLoading } = useDashboardData(profile?.id, selectedAcademicYear)
 
   const kpis = data?.kpis
-
   const forecastMap = Object.fromEntries(
     (data?.forecastsData ?? []).map((f) => [f.kpi_key, f])
   )
@@ -154,9 +154,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <KpiCard label="Projets soumis" value={kpis?.projects_submitted ?? 0}
             forecast={forecastMap['projects_submitted']} icon="📤" color="blue" />
-          <KpiCard label="Projets obtenus" value={kpis?.projects_obtained ?? 0}
+          <KpiCard label="Projets obtenu" value={kpis?.projects_obtained ?? 0}
             forecast={forecastMap['projects_obtained']} icon="✅" color="green" />
-          <KpiCard label="Taux de succès" value={`${kpis?.projects_success_rate ?? 0}%`}
+          <KpiCard label="Taux de succès" value={kpis?.projects_success_rate ?? 0} unit="%"
             forecast={forecastMap['projects_success_rate']} icon="📈" color="teal" />
           <KpiCard label="Budget UM6P (MAD)" value={(kpis?.budget_obtained ?? 0).toLocaleString()}
             forecast={forecastMap['budget_obtained']} icon="💰" color="gold" />
