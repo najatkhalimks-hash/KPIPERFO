@@ -1,10 +1,9 @@
-// CollaborationsPage
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Edit2, Globe2, Link2 } from 'lucide-react'
+import { Plus, Trash2, Edit2 } from 'lucide-react'
 import StatusBadge from '@/components/ui/StatusBadge'
 import type { Collaboration } from '@/types/database'
 
@@ -28,13 +27,20 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!researcherId) return
     setLoading(true)
-    const payload = { ...form, researcher_id: researcherId }
-    try {
-      // CORRECTION : Cast as any de la table Supabase pour contourner l'erreur d'assignation 'never'
-      const table = supabase.from('collaborations') as any;
+    
+    const payload = { 
+      ...form, 
+      researcher_id: researcherId,
+      convention_ref: form.has_convention ? form.convention_ref : null 
+    }
 
-      if (item) {
+    try {
+      // CORRECTION : Cast as any de la table Supabase pour contourner le blocage strict du schéma
+      const table = supabase.from('collaborations') as any
+
+      if (item?.id) {
         await table.update(payload).eq('id', item.id)
       } else {
         await table.insert([payload])
@@ -53,7 +59,7 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
       <div className="modal-box max-w-lg">
         <div className="flex items-center justify-between p-6 border-b border-um6p-border">
           <h2 className="text-lg font-semibold">{item ? 'Modifier' : 'Ajouter'} une collaboration</h2>
-          <button onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
@@ -64,7 +70,9 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
             <div>
               <label className="label">Type de partenaire</label>
               <select className="input-field" value={form.partner_type} onChange={(e) => set('partner_type', e.target.value)}>
-                {['universite', 'centre_recherche', 'entreprise', 'organisme_international', 'autre'].map((t) => <option key={t}>{t}</option>)}
+                {['universite', 'centre_recherche', 'entreprise', 'organisme_international', 'autre'].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -80,7 +88,9 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
             <div>
               <label className="label">Type</label>
               <select className="input-field" value={form.collaboration_type} onChange={(e) => set('collaboration_type', e.target.value)}>
-                {['recherche', 'co_publication', 'mobilite', 'cotutelle', 'projet_commun', 'autre'].map((t) => <option key={t}>{t}</option>)}
+                {['recherche', 'co_publication', 'mobilite', 'cotutelle', 'projet_commun', 'autre'].map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -108,7 +118,7 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
           <div><label className="label">Résultats / Outputs</label><textarea rows={2} className="input-field resize-none" value={form.outcomes} onChange={(e) => set('outcomes', e.target.value)} /></div>
           <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={loading} className="btn-primary">{loading ? '...' : 'Enregistrer'}</button>
+            <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
           </div>
         </form>
       </div>
@@ -116,7 +126,7 @@ function CollaborationModal({ item, researcherId, onClose, onSaved }: any) {
   )
 }
 
-export function CollaborationsPage() {
+export default function CollaborationsPage() {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
@@ -126,7 +136,11 @@ export function CollaborationsPage() {
     queryKey: ['collaborations', profile?.id],
     enabled: !!profile?.id,
     queryFn: async () => {
-      const { data } = await supabase.from('collaborations').select('*').eq('researcher_id', profile!.id).order('start_date', { ascending: false })
+      const { data } = await supabase
+        .from('collaborations')
+        .select('*')
+        .eq('researcher_id', profile!.id)
+        .order('start_date', { ascending: false })
       return (data as Collaboration[]) ?? []
     },
   })
@@ -135,11 +149,14 @@ export function CollaborationsPage() {
     mutationFn: async (id: string) => { 
       await (supabase.from('collaborations') as any).delete().eq('id', id) 
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['collaborations'] }); toast.success('Supprimé') },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['collaborations'] })
+      toast.success('Supprimé') 
+    },
   })
 
-  // CORRECTION : Cast as any[] pour sécuriser le filtrage des KPIs et éviter le plantage en cas d'inférence instable
-  const itemsData = items as any[];
+  // CORRECTION TS2339 : Utilisation d'un tableau générique any[] pour sécuriser le traitement local des métriques
+  const itemsData = items as any[]
   const stats = {
     total: itemsData.length,
     international: itemsData.filter((i) => i.country && i.country.toLowerCase() !== 'maroc' && i.country.toLowerCase() !== 'morocco').length,
@@ -159,7 +176,7 @@ export function CollaborationsPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Total', value: stats.total },
           { label: 'Actives', value: stats.active },
@@ -176,35 +193,59 @@ export function CollaborationsPage() {
       <div className="table-container">
         <table className="table-base">
           <thead className="table-head">
-            <tr><th>Partenaire</th><th>Type</th><th>Pays</th><th>Objet</th><th>Période</th><th>Convention</th><th>Statut</th><th>Actions</th></tr>
+            <tr>
+              <th>Partenaire</th>
+              <th>Type</th>
+              <th>Pays</th>
+              <th>Objet</th>
+              <th>Période</th>
+              <th>Convention</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody>
-            {isLoading ? <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
-              : items.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune collaboration enregistrée</td></tr>
-              : items.map((item) => (
-                <tr key={item.id} className="table-row">
-                  <td className="text-sm font-medium text-um6p-navy">{item.partner_name}</td>
-                  <td><span className="badge-info capitalize">{item.partner_type}</span></td>
-                  <td className="text-sm">{item.country}</td>
-                  <td className="text-sm text-um6p-gray-dark max-w-xs truncate">{item.title}</td>
-                  <td className="text-xs text-um6p-gray-dark">{item.start_date} → {item.end_date}</td>
-                  <td>{item.has_convention ? <span className="text-um6p-green text-xs font-semibold">✓ Oui</span> : <span className="text-um6p-gray-dark text-xs">Non</span>}</td>
-                  <td><StatusBadge status={item.status ?? 'active'} /></td>
-                  <td><div className="flex gap-1">
+            {isLoading ? (
+              <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
+            ) : itemsData.length === 0 ? (
+              <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucune collaboration enregistrée</td></tr>
+            ) : itemsData.map((item: any) => ( // CORRECTION TS2339 : Forcer le type item en 'any' dans l'itération du tableau
+              <tr key={item.id} className="table-row">
+                <td className="text-sm font-medium text-um6p-navy">{item.partner_name}</td>
+                <td><span className="badge-info capitalize">{item.partner_type?.replace('_', ' ')}</span></td>
+                <td className="text-sm">{item.country}</td>
+                <td className="text-sm text-um6p-gray-dark max-w-xs truncate" title={item.title}>{item.title || '-'}</td>
+                <td className="text-xs text-um6p-gray-dark whitespace-nowrap">
+                  {item.start_date ? new Date(item.start_date).toLocaleDateString('fr-FR') : '?'} → {item.end_date ? new Date(item.end_date).toLocaleDateString('fr-FR') : 'En cours'}
+                </td>
+                <td>
+                  {item.has_convention ? (
+                    <span className="text-um6p-green text-xs font-semibold" title={item.convention_ref}>✓ Oui</span>
+                  ) : (
+                    <span className="text-um6p-gray-dark text-xs">Non</span>
+                  )}
+                </td>
+                <td><StatusBadge status={item.status ?? 'active'} /></td>
+                <td>
+                  <div className="flex gap-1">
                     <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
-                    <button onClick={() => { if (confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
-                  </div></td>
-                </tr>
-              ))}
+                    <button onClick={() => { if (item.id && confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
       {modalOpen && (
-        <CollaborationModal item={editing} researcherId={profile?.id} onClose={() => { setModalOpen(false); setEditing(null) }} onSaved={() => { qc.invalidateQueries({ queryKey: ['collaborations', 'dashboard'] }); setModalOpen(false); setEditing(null) }} />
+        <CollaborationModal 
+          item={editing} 
+          researcherId={profile?.id} 
+          onClose={() => { setModalOpen(false); setEditing(null) }} 
+          onSaved={() => { qc.invalidateQueries({ queryKey: ['collaborations', 'dashboard'] }); setModalOpen(false); setEditing(null) }} 
+        />
       )}
     </div>
   )
 }
-
-export default CollaborationsPage
