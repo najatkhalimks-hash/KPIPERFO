@@ -1,7 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Forecast, Publication, Project } from '@/types/database'
+import type { Database, Forecast, Publication, Project } from '@/types/database'
 
 interface TimelineEvent {
   id: string
@@ -17,13 +17,14 @@ export function PublicationsByYear({ researcherId }: { researcherId?: string }) 
     queryKey: ['publications-by-year', researcherId],
     enabled: !!researcherId,
     queryFn: async () => {
-      const { data: fetchDocs } = await (supabase.from('publications') as any)
+      const { data: fetchDocs } = await supabase
+        .from('publications')
         .select('year, publication_stage')
         .eq('researcher_id', researcherId!)
 
       const byYear: Record<number, { published: number; accepted: number }> = {}
       
-      ;(fetchDocs ?? []).forEach((p: any) => {
+      ;(fetchDocs ?? []).forEach((p) => {
         if (!p.year) return
         if (!byYear[p.year]) byYear[p.year] = { published: 0, accepted: 0 }
         if (p.publication_stage === 'published') byYear[p.year].published++
@@ -91,11 +92,9 @@ export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast
 
 // 3. Chart: Projects budget
 export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] }) {
-  const pData = projectsData as any[]
-
   const byStatus = [
-    { name: 'Obtenus', value: pData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
-    { name: 'Soumis', value: pData.filter((p) => p.status === 'submitted').reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
+    { name: 'Obtenus', value: projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
+    { name: 'Soumis', value: projectsData.filter((p) => p.status === 'submitted').reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
   ].filter((d) => d.value > 0)
 
   if (!byStatus.length) return <p className="text-sm text-um6p-gray-dark text-center py-8">Aucun projet enregistré</p>
@@ -120,7 +119,7 @@ export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] 
         </div>
       ))}
       <div className="text-xs text-um6p-gray-dark pt-2 border-t border-gray-100 mt-2">
-        Total obtenu: <strong className="text-um6p-navy">{pData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0).toLocaleString('fr-FR')} MAD</strong>
+        Total obtenu: <strong className="text-um6p-navy">{projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0).toLocaleString('fr-FR')} MAD</strong>
       </div>
     </div>
   )
@@ -132,17 +131,17 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
     queryKey: ['activity-timeline', researcherId],
     enabled: !!researcherId,
     queryFn: async () => {
-      // Sécurisation globale des requêtes parallèles en cas de table manquante ou instable
+      // Les requêtes parallèles exploitent désormais pleinement les types natifs générés par Supabase
       const [pubs, projects, comms] = await Promise.all([
-        (supabase.from('publications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3).catch(() => ({ data: [] })),
-        (supabase.from('projects') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
-        (supabase.from('communications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
+        supabase.from('publications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3).catch(() => ({ data: [] })),
+        supabase.from('projects').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
+        supabase.from('communications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2).catch(() => ({ data: [] })),
       ])
 
       const events: TimelineEvent[] = [
-        ...(pubs.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication' as const, icon: '📄' })),
-        ...(projects.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project' as const, icon: '📁' })),
-        ...(comms.data ?? []).filter((c: any) => c?.created_at).map((c: any) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication' as const, icon: '🎤' })),
+        ...(pubs.data ?? []).filter((p) => p?.created_at).map((p) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication' as const, icon: '📄' })),
+        ...(projects.data ?? []).filter((p) => p?.created_at).map((p) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project' as const, icon: '📁' })),
+        ...(comms.data ?? []).filter((c) => c?.created_at).map((c) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication' as const, icon: '🎤' })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6)
 
       return events
