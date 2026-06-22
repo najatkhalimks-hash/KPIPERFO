@@ -3,16 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
-import { Users, Shield, Activity, BarChart2, CheckCircle, XCircle, Edit2 } from 'lucide-react'
+import { Users, Shield, BarChart2, CheckCircle, XCircle } from 'lucide-react'
 import type { Profile } from '@/types/database'
 
-type Tab = 'users' | 'stats' | 'years'
+type Tab = 'users' | 'stats'
 
 export default function AdminPage() {
   const { profile: currentUser } = useAuth()
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('users')
-  const [editingUser, setEditingUser] = useState<Profile | null>(null)
 
   const { data: users = [], isLoading } = useQuery<Profile[]>({
     queryKey: ['admin-users'],
@@ -25,7 +24,7 @@ export default function AdminPage() {
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      // Cast en any des tables pour éviter le blocage strict sur les comptages parallélisés
+      // Cast en any des tables pour éviter le blocage strict sur les comptes parallélisés
       const [pubs, projs, trainings, supervisions, comms, patents, collabs] = await Promise.all([
         (supabase.from('publications') as any).select('id', { count: 'exact', head: true }),
         (supabase.from('projects') as any).select('id', { count: 'exact', head: true }),
@@ -52,7 +51,10 @@ export default function AdminPage() {
       // CORRECTION : Cast as any de la table profiles pour éliminer le blocage du update (never)
       await (supabase.from('profiles') as any).update({ role }).eq('id', id)
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Rôle mis à jour') },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      toast.success('Rôle mis à jour') 
+    },
   })
 
   const toggleActive = useMutation({
@@ -60,7 +62,10 @@ export default function AdminPage() {
       // CORRECTION : Cast as any de la table profiles pour éliminer le blocage du update (never)
       await (supabase.from('profiles') as any).update({ is_active }).eq('id', id)
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Statut mis à jour') },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      toast.success('Statut mis à jour') 
+    },
   })
 
   const tabs = [
@@ -85,8 +90,11 @@ export default function AdminPage() {
       <div className="border-b border-um6p-border">
         <div className="flex gap-1">
           {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === t.id ? 'border-um6p-green text-um6p-green' : 'border-transparent text-um6p-gray-dark hover:text-um6p-navy'}`}>
+            <button 
+              key={t.id} 
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${tab === t.id ? 'border-um6p-green text-um6p-green' : 'border-transparent text-um6p-gray-dark hover:text-um6p-navy'}`}
+            >
               <t.icon size={15} />{t.label}
             </button>
           ))}
@@ -96,7 +104,7 @@ export default function AdminPage() {
       {/* Users tab */}
       {tab === 'users' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="card p-4 flex items-center gap-3">
               <Users size={20} className="text-um6p-green" />
               <div><p className="text-2xl font-bold text-um6p-navy">{users.length}</p><p className="text-xs text-um6p-gray-dark">Utilisateurs total</p></div>
@@ -132,7 +140,7 @@ export default function AdminPage() {
                         value={u.role ?? 'researcher'}
                         onChange={(e) => updateUserRole.mutate({ id: u.id, role: e.target.value })}
                         disabled={u.id === currentUser?.id}
-                        className="text-xs border border-um6p-border rounded px-2 py-1 bg-white"
+                        className="text-xs border border-um6p-border rounded px-2 py-1 bg-white focus:outline-none focus:border-um6p-green"
                       >
                         <option value="researcher">Chercheur</option>
                         <option value="admin">Administrateur</option>
@@ -149,7 +157,7 @@ export default function AdminPage() {
                       {u.id !== currentUser?.id && (
                         <button
                           onClick={() => toggleActive.mutate({ id: u.id, is_active: u.is_active === false })}
-                          className={`text-xs px-2 py-1 rounded-lg ${u.is_active !== false ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                          className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${u.is_active !== false ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
                         >
                           {u.is_active !== false ? 'Désactiver' : 'Activer'}
                         </button>
@@ -167,7 +175,7 @@ export default function AdminPage() {
       {tab === 'stats' && stats && (
         <div className="space-y-4">
           <h2 className="text-sm font-semibold text-um6p-navy uppercase tracking-wide">Données globales de la plateforme</h2>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Publications', value: stats.publications, icon: '📄', color: 'text-um6p-navy' },
               { label: 'Projets', value: stats.projects, icon: '🔬', color: 'text-um6p-green' },
