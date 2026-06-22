@@ -119,7 +119,7 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
         supabase.from('communications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
       ])
       const events = [
-        ...(pubs.data ?? []).map((p) => ({ ...p, type: 'publication', icon: '📄' })),
+        ...(pubs.data ?? []).map((p) => ({ ...(p || {}), type: 'publication', icon: '📄' })),
         ...(projects.data ?? []).map((p) => ({ ...p, type: 'project', icon: '📁' })),
         ...(comms.data ?? []).map((c) => ({ ...c, type: 'communication', icon: '🎤' })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6)
