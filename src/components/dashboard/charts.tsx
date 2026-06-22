@@ -9,14 +9,13 @@ export function PublicationsByYear({ researcherId }: { researcherId?: string }) 
     queryKey: ['publications-by-year', researcherId],
     enabled: !!researcherId,
     queryFn: async () => {
-      const { data: fetchDocs } = await supabase
-        .from('publications')
+      const { data: fetchDocs } = await (supabase.from('publications') as any)
         .select('year, publication_stage')
         .eq('researcher_id', researcherId!)
 
       const byYear: Record<number, { published: number; accepted: number }> = {}
       
-      ;(fetchDocs ?? []).forEach((p: Publication) => {
+      ;(fetchDocs ?? []).forEach((p: any) => {
         if (!p.year) return
         if (!byYear[p.year]) byYear[p.year] = { published: 0, accepted: 0 }
         if (p.publication_stage === 'published') byYear[p.year].published++
@@ -84,14 +83,17 @@ export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast
 
 // 3. Projects budget chart
 export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] }) {
+  const pData = projectsData as any[]
+
   const byStatus = [
-    { name: 'Obtenus', value: projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
-    { name: 'Soumis', value: projectsData.filter((p) => p.status === 'submitted').reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
+    { name: 'Obtenus', value: pData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
+    { name: 'Soumis', value: pData.filter((p) => p.status === 'submitted').reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
   ].filter((d) => d.value > 0)
 
   if (!byStatus.length) return <p className="text-sm text-um6p-gray-dark text-center py-8">Aucun projet enregistré</p>
 
   const formatMAD = (v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)
+  const maxVal = Math.max(...byStatus.map((b) => b.value))
 
   return (
     <div className="space-y-3">
@@ -102,7 +104,7 @@ export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] 
             <div className="progress-bar">
               <div
                 className="progress-fill bg-um6p-green"
-                style={{ width: `${Math.round((item.value / Math.max(...byStatus.map((b) => b.value))) * 100)}%` }}
+                style={{ width: `${Math.round((item.value / (maxVal || 1)) * 100)}%` }}
               />
             </div>
           </div>
@@ -110,7 +112,7 @@ export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] 
         </div>
       ))}
       <p className="text-xs text-um6p-gray-dark pt-2">
-        Total obtenu: <strong>{projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0).toLocaleString()} MAD</strong>
+        Total obtenu: <strong>{pData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0).toLocaleString()} MAD</strong>
       </p>
     </div>
   )
@@ -123,15 +125,15 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
     enabled: !!researcherId,
     queryFn: async () => {
       const [pubs, projects, comms] = await Promise.all([
-        supabase.from('publications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3),
-        supabase.from('projects').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
-        supabase.from('communications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
+        (supabase.from('publications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(3),
+        (supabase.from('projects') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
+        (supabase.from('communications') as any).select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
       ])
 
       const events = [
-        ...(pubs.data ?? []).filter(p => p?.created_at).map((p) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication', icon: '📄' })),
-        ...(projects.data ?? []).filter(p => p?.created_at).map((p) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project', icon: '📁' })),
-        ...(comms.data ?? []).filter(c => c?.created_at).map((c) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication', icon: '🎤' })),
+        ...(pubs.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication', icon: '📄' })),
+        ...(projects.data ?? []).filter((p: any) => p?.created_at).map((p: any) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project', icon: '📁' })),
+        ...(comms.data ?? []).filter((c: any) => c?.created_at).map((c: any) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication', icon: '🎤' })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6)
 
       return events
