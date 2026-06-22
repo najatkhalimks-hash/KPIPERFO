@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Edit2, TrendingUp } from 'lucide-react'
+import { Plus, Trash2, Edit2, Shield, FileText, Award } from 'lucide-react'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ProjectModal from '@/components/modules/ProjectModal'
 import type { Project } from '@/types/database'
@@ -21,23 +21,37 @@ export default function ProjectsPage() {
     queryKey: ['projects', profile?.id],
     enabled: !!profile?.id,
     queryFn: async () => {
-      const { data } = await supabase.from('projects').select('*').eq('researcher_id', profile!.id).order('created_at', { ascending: false })
-      return data ?? []
+      const { data } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('researcher_id', profile!.id)
+        .order('created_at', { ascending: false })
+      return (data as Project[]) ?? []
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { await supabase.from('projects').delete().eq('id', id) },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); toast.success('Projet supprimé') },
+    mutationFn: async (id: string) => { 
+      await (supabase.from('projects') as any).delete().eq('id', id) 
+    },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      toast.success('Projet supprimé') 
+    },
   })
 
-  const filtered = filter === 'all' ? projects : projects.filter((p) => p.status === filter)
+  // CORRECTION : Cast pour simplifier l'accès aux champs et éviter les conflits d'inférence stricts
+  const projectsData = projects as any[]
+
+  const filtered = filter === 'all' 
+    ? projectsData 
+    : projectsData.filter((p) => p.status === filter)
 
   const stats = {
-    total: projects.length,
-    obtained: projects.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).length,
-    budget: projects.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0),
-    intl: projects.filter((p) => p.is_international).length,
+    total: projectsData.length,
+    obtained: projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).length,
+    budget: projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0),
+    intl: projectsData.filter((p) => p.is_international).length,
   }
 
   return (
@@ -54,15 +68,17 @@ export default function ProjectsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total projets', value: stats.total, icon: '📁' },
-          { label: 'Projets obtenus', value: stats.obtained, icon: '✅' },
-          { label: 'Budget UM6P (MAD)', value: stats.budget.toLocaleString(), icon: '💰' },
-          { label: 'Internationaux', value: stats.intl, icon: '🌍' },
+          { label: 'Total projets', value: stats.total, icon: FileText, color: 'text-um6p-navy' },
+          { label: 'Projets obtenus', value: stats.obtained, icon: Award, color: 'text-um6p-green' },
+          { label: 'Budget UM6P (MAD)', value: stats.budget.toLocaleString(), icon: Shield, color: 'text-um6p-navy' },
+          { label: 'Internationaux', value: stats.intl, icon: Award, color: 'text-um6p-gold' },
         ].map((s) => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
-            <span className="text-2xl">{s.icon}</span>
+            <div className={`p-2 rounded-lg bg-um6p-gray ${s.color}`}>
+              <s.icon size={20} />
+            </div>
             <div>
-              <p className="text-xl font-bold text-um6p-navy">{s.value}</p>
+              <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
               <p className="text-xs text-um6p-gray-dark">{s.label}</p>
             </div>
           </div>
@@ -71,8 +87,11 @@ export default function ProjectsPage() {
 
       <div className="card p-4 flex gap-2 flex-wrap">
         {['all', 'idea', 'submitted', 'obtained', 'active', 'completed', 'cancelled'].map((s) => (
-          <button key={s} onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === s ? 'bg-um6p-green text-white' : 'bg-um6p-gray text-um6p-gray-dark hover:bg-um6p-green-pale'}`}>
+          <button 
+            key={s} 
+            onClick={() => setFilter(s)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === s ? 'bg-um6p-green text-white' : 'bg-um6p-gray text-um6p-gray-dark hover:bg-um6p-green-pale'}`}
+          >
             {s === 'all' ? 'Tous' : t(`status.${s}`)}
           </button>
         ))}
@@ -96,9 +115,11 @@ export default function ProjectsPage() {
             {isLoading ? (
               <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">
-                {filter === 'all' ? 'Aucun projet. Ajoutez votre premier projet.' : 'Aucun projet dans cette catégorie.'}
-              </td></tr>
+              <tr>
+                <td colSpan={8} className="text-center py-10 text-um6p-gray-dark">
+                  {filter === 'all' ? 'Aucun projet. Ajoutez votre premier projet.' : 'Aucun projet dans cette catégorie.'}
+                </td>
+              </tr>
             ) : filtered.map((p) => (
               <tr key={p.id} className="table-row">
                 <td className="max-w-xs">
@@ -119,12 +140,16 @@ export default function ProjectsPage() {
                 <td>{p.is_international && <span className="text-lg">🌍</span>}</td>
                 <td>
                   <div className="flex gap-1">
-                    <button onClick={() => { setEditing(p); setModalOpen(true) }}
-                      className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark">
+                    <button 
+                      onClick={() => { setEditing(p); setModalOpen(true) }}
+                      className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"
+                    >
                       <Edit2 size={14} />
                     </button>
-                    <button onClick={() => { if (confirm(t('common.confirm_delete'))) deleteMutation.mutate(p.id) }}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-red-500">
+                    <button 
+                      onClick={() => { if (confirm(t('common.confirm_delete'))) deleteMutation.mutate(p.id) }}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"
+                    >
                       <Trash2 size={14} />
                     </button>
                   </div>
