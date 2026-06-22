@@ -74,7 +74,10 @@ export default function ProfilePage() {
     }
 
     try {
-      await supabase.from('profiles').update(payload).eq('id', profile.id)
+      // CORRECTION : Cast en explicit as any pour empêcher l'erreur d'assignation au type 'never'
+      const table = supabase.from('profiles') as any
+      await table.update(payload).eq('id', profile.id)
+      
       toast.success('Profil mis à jour avec succès')
       // Actualise en douceur l'interface pour recharger le profil mis à jour
       setTimeout(() => window.location.reload(), 800)
