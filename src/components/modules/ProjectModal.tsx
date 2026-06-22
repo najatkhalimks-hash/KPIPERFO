@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
-import type { Project } from '@/types/database'
+import type { Database, Project } from '@/types/database'
+
+// 1. On extrait proprement le type attendu pour les opérations d'insertion et de mise à jour
+type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 
 interface Props { 
   project?: Project | null
@@ -49,7 +52,6 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
 
   const set = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }))
 
-  // Auto-calculate UM6P budget
   const calcBudget = (total: string, pct: number) => {
     const t = parseFloat(total)
     if (!isNaN(t)) {
@@ -61,26 +63,40 @@ export default function ProjectModal({ project, researcherId, onClose, onSaved }
     e.preventDefault()
     setLoading(true)
 
-    const payload = {
-      ...form,
-      researcher_id: researcherId,
+    // 2. Construction d'un payload respectant scrupuleusement l'interface générée par Supabase
+    const payload: ProjectInsert = {
+      title: form.title,
+      type: form.type || null,
+      role: form.role,
+      status: form.status,
+      funder: form.funder || null,
+      um6p_share_pct: form.um6p_share_pct,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      is_international: form.is_international,
+      comment: form.comment || null,
+      researcher_id: researcherId || null,
       total_budget: form.total_budget ? parseFloat(form.total_budget) : null,
       um6p_budget: form.um6p_budget ? parseFloat(form.um6p_budget) : null,
     }
 
     try {
-      // CORRECTION TS2345 : Cast as any de la table pour éliminer le blocage strict sur le payload (never/never[])
-      const table = supabase.from('projects') as any
-
       if (project?.id) {
-        await table.update(payload).eq('id', project.id)
+        const { error } = await supabase
+          .from('projects')
+          .update(payload)
+          .eq('id', project.id)
+        if (error) throw error
         toast.success('Projet mis à jour')
       } else {
-        await table.insert([payload])
+        const { error } = await supabase
+          .from('projects')
+          .insert([payload])
+        if (error) throw error
         toast.success('Projet ajouté')
       }
       onSaved()
-    } catch { 
+    } catch (err) { 
       toast.error('Erreur lors de l\'enregistrement') 
     } finally {
       setLoading(false)
