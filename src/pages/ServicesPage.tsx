@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
-import { Plus, Trash2, Edit2, DollarSign, Briefcase } from 'lucide-react'
+import { Plus, Trash2, Edit2 } from 'lucide-react'
 import StatusBadge from '@/components/ui/StatusBadge'
 import type { Service } from '@/types/database'
 
@@ -16,7 +16,14 @@ const SERVICE_TYPES = [
   { value: 'autre', label: 'Autre prestation' },
 ]
 
-function ServiceModal({ item, researcherId, onClose, onSaved }: any) {
+interface ServiceModalProps {
+  item: Service | null
+  researcherId: string | undefined
+  onClose: () => void
+  onSaved: () => void
+}
+
+function ServiceModal({ item, researcherId, onClose, onSaved }: ServiceModalProps) {
   const [form, setForm] = useState({
     title: item?.title ?? '',
     service_type: item?.service_type ?? 'expertise',
@@ -24,27 +31,50 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: any) {
     client_type: item?.client_type ?? 'entreprise',
     start_date: item?.start_date ?? '',
     end_date: item?.end_date ?? '',
-    contract_amount: item?.contract_amount ?? '',
-    um6p_share: item?.um6p_share ?? '',
+    contract_amount: item?.contract_amount ? String(item.contract_amount) : '',
+    um6p_share: item?.um6p_share ? String(item.um6p_share) : '',
     status: item?.status ?? 'active',
     deliverables: item?.deliverables ?? '',
     team_members: item?.team_members ?? '',
     comment: item?.comment ?? '',
   })
   const [loading, setLoading] = useState(false)
-  const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+  const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
-    const payload = { ...form, researcher_id: researcherId }
+    if (!researcherId) return
+    setLoading(false)
+    
+    const payload = {
+      title: form.title,
+      service_type: form.service_type,
+      client_name: form.client_name,
+      client_type: form.client_type,
+      start_date: form.start_date,
+      end_date: form.end_date || null,
+      contract_amount: form.contract_amount ? Number(form.contract_amount) : null,
+      um6p_share: form.um6p_share ? Number(form.um6p_share) : null,
+      status: form.status,
+      deliverables: form.deliverables,
+      team_members: form.team_members,
+      comment: form.comment,
+      researcher_id: researcherId,
+    }
+
     try {
-      if (item) await supabase.from('services').update(payload).eq('id', item.id)
-      else await supabase.from('services').insert(payload)
+      if (item?.id) {
+        await supabase.from('services').update(payload).eq('id', item.id)
+      } else {
+        await supabase.from('services').insert([payload])
+      }
       toast.success('Prestation enregistrée')
       onSaved()
-    } catch { toast.error('Erreur') }
-    setLoading(false)
+    } catch { 
+      toast.error('Erreur lors de l’enregistrement') 
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -52,7 +82,7 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: any) {
       <div className="modal-box max-w-xl">
         <div className="flex items-center justify-between p-6 border-b border-um6p-border">
           <h2 className="text-lg font-semibold">{item ? 'Modifier' : 'Ajouter'} une prestation</h2>
-          <button onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-um6p-gray rounded-lg">✕</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
@@ -69,7 +99,7 @@ function ServiceModal({ item, researcherId, onClose, onSaved }: any) {
             <div>
               <label className="label">Statut</label>
               <select className="input-field" value={form.status} onChange={(e) => set('status', e.target.value)}>
-                <option value="planned">Planifiée</option>
+                <option value="proposal">Planifiée</option>
                 <option value="active">En cours</option>
                 <option value="completed">Terminée</option>
                 <option value="cancelled">Annulée</option>
@@ -140,14 +170,23 @@ export default function ServicesPage() {
     queryKey: ['services', profile?.id],
     enabled: !!profile?.id,
     queryFn: async () => {
-      const { data } = await supabase.from('services').select('*').eq('researcher_id', profile!.id).order('start_date', { ascending: false })
-      return data ?? []
+      const { data } = await supabase
+        .from('services')
+        .select('*')
+        .eq('researcher_id', profile!.id)
+        .order('start_date', { ascending: false })
+      return (data as Service[]) ?? []
     },
   })
 
   const del = useMutation({
-    mutationFn: async (id: string) => { await supabase.from('services').delete().eq('id', id) },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['services'] }); toast.success('Supprimé') },
+    mutationFn: async (id: string) => { 
+      await supabase.from('services').delete().eq('id', id) 
+    },
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ['services'] })
+      toast.success('Supprimé') 
+    },
   })
 
   const totalRevenue = items.reduce((s, i) => s + (Number(i.contract_amount) || 0), 0)
@@ -212,7 +251,7 @@ export default function ServicesPage() {
                 <td>
                   <div className="flex gap-1">
                     <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
-                    <button onClick={() => { if (confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                    <button onClick={() => { if (item.id && confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
                   </div>
                 </td>
               </tr>
