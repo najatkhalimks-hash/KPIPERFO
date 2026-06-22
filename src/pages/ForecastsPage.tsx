@@ -118,8 +118,8 @@ export default function ForecastsPage() {
       const upserts = KPI_DEFINITIONS.map((kpi) => {
         const existing = forecastsData?.[kpi.key]
         const edit = edits[kpi.key] ?? {}
-        const planned = edit.planned ?? existing?.planned_value ?? 0
-        const revision_s1 = edit.revision_s1 ?? existing?.revision_s1_value ?? null
+        const planned = edit.planned !== undefined ? edit.planned : (existing?.planned_value ?? 0)
+        const revision_s1 = edit.revision_s1 !== undefined ? edit.revision_s1 : (existing?.revision_s1_value ?? null)
         const realizedVal = realized?.[kpi.key] ?? 0
         const status = getStatus(planned, realizedVal)
         return {
@@ -136,7 +136,7 @@ export default function ForecastsPage() {
         }
       })
       
-      // Cast de la table en any pour court-circuiter l'erreur "never[]" sur la méthode upsert
+      // CORRECTION : Cast de la table en any pour court-circuiter l'erreur "never[]" sur la méthode upsert
       await (supabase.from('forecasts') as any).upsert(upserts, { onConflict: 'researcher_id,academic_year_id,kpi_key' })
       
       qc.invalidateQueries({ queryKey: ['forecasts'] })
@@ -144,8 +144,9 @@ export default function ForecastsPage() {
       toast.success('Prévisions et réalisations enregistrées')
     } catch {
       toast.error('Erreur lors de l\'enregistrement')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const categories = ['production', 'rayonnement', 'projets', 'formation', 'encadrement', 'prestations']
@@ -183,7 +184,7 @@ export default function ForecastsPage() {
       </div>
 
       {categories.map((cat) => {
-        const kpis = KPI_DEFINITIONS.filter((k) => k.category === cat || (cat === 'encadrement' && k.category === 'encadrement'))
+        const kpis = KPI_DEFINITIONS.filter((k) => k.category === cat)
         if (!kpis.length) return null
         return (
           <div key={cat} className="card overflow-hidden">
@@ -207,12 +208,15 @@ export default function ForecastsPage() {
                   {kpis.map((kpi) => {
                     const existing = forecastsData?.[kpi.key]
                     const edit = edits[kpi.key] ?? {}
-                    const planned = edit.planned ?? existing?.planned_value ?? 0
-                    const revision = edit.revision_s1 ?? existing?.revision_s1_value ?? null
+                    const planned = edit.planned !== undefined ? edit.planned : (existing?.planned_value ?? 0)
+                    const revision = edit.revision_s1 !== undefined ? edit.revision_s1 : (existing?.revision_s1_value ?? null)
                     const realizedVal = realized?.[kpi.key] ?? 0
                     const gap = realizedVal - planned
                     const status = getStatus(planned, realizedVal)
                     const pct = planned > 0 ? Math.round((realizedVal / planned) * 100) : null
+                    
+                    // CORRECTION : Évaluation de l'écart absolu pour l'obligation de saisie
+                    const hasSignificantGap = planned > 0 ? Math.abs((gap / planned) * 100) >= 20 : realizedVal > 0
 
                     return (
                       <tr key={kpi.key} className="border-b border-um6p-border hover:bg-um6p-gray/50 transition-colors">
@@ -256,11 +260,11 @@ export default function ForecastsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          {(Math.abs(gap / (planned || 1) * 100) >= 20 || planned === 0) && (
+                          {(hasSignificantGap || planned === 0) && (
                             <input
                               type="text"
                               className="w-full px-2 py-1.5 border border-amber-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 bg-amber-50"
-                              placeholder={Math.abs(gap / (planned || 1) * 100) >= 20 ? '⚠️ Justification requise (écart ≥ 20%)' : 'Commentaire optionnel'}
+                              placeholder={hasSignificantGap ? '⚠️ Justification requise (écart ≥ 20%)' : 'Commentaire optionnel'}
                               value={edit.justification ?? existing?.gap_justification ?? ''}
                               onChange={(e) => setEdits((prev) => ({ ...prev, [kpi.key]: { ...prev[kpi.key], justification: e.target.value } }))}
                             />
