@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
-import { Save, User, BookOpen, Award, Globe } from 'lucide-react'
+import { Save, User, BookOpen, Award, Globe, LucideIcon } from 'lucide-react'
 
 const GRADES = ['Professeur', 'Professeur Habilité', 'Professeur Assistant', 'Chercheur', 'Chercheur Senior', 'Ingénieur de Recherche', 'Post-doctorant', 'Doctorant', 'Expert Affilié']
 const SPECIALTIES = ['Sciences Mathématiques', 'Informatique & IA', 'Sciences Physiques', 'Chimie', 'Biologie', 'Agronomie', 'Géosciences', 'Sciences de l\'Ingénieur', 'Sciences Sociales', 'Management', 'Économie', 'Droit', 'Médecine', 'Autre']
@@ -63,8 +63,9 @@ export default function ProfilePage() {
     }
   }, [profile])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  // CORRECTION : "e" rendu optionnel pour éviter le crash lors du clic sur le bouton hors-formulaire
+  async function handleSubmit(e?: React.FormEvent) {
+    if (e) e.preventDefault()
     if (!profile?.id) return
     setLoading(true)
 
@@ -74,12 +75,10 @@ export default function ProfilePage() {
     }
 
     try {
-      // CORRECTION : Cast en explicit as any pour empêcher l'erreur d'assignation au type 'never'
       const table = supabase.from('profiles') as any
       await table.update(payload).eq('id', profile.id)
       
       toast.success('Profil mis à jour avec succès')
-      // Actualise en douceur l'interface pour recharger le profil mis à jour
       setTimeout(() => window.location.reload(), 800)
     } catch { 
       toast.error('Erreur lors de la mise à jour') 
@@ -88,7 +87,7 @@ export default function ProfilePage() {
     }
   }
 
-  const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
+  const Section = ({ title, icon: Icon, children }: { title: string; icon: LucideIcon; children: React.ReactNode }) => (
     <div className="card p-6">
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-um6p-border">
         <Icon size={18} className="text-um6p-green" />
@@ -109,7 +108,8 @@ export default function ProfilePage() {
           <h1 className="page-title">Mon Profil</h1>
           <p className="text-sm text-um6p-gray-dark">Informations personnelles et académiques</p>
         </div>
-        <button onClick={handleSubmit} disabled={loading} className="btn-primary">
+        {/* Ce bouton appelle maintenant la fonction de manière sécurisée sans lui passer l'event d'un click synthétique */}
+        <button onClick={() => handleSubmit()} disabled={loading} className="btn-primary">
           <Save size={16} /> {loading ? 'Enregistrement...' : 'Sauvegarder'}
         </button>
       </div>
