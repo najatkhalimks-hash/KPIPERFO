@@ -149,7 +149,7 @@ function PatentModal({ item, researcherId, onClose, onSaved }: PatentModalProps)
           </div>
           <div className="flex justify-end gap-3 pt-2 border-t border-um6p-border">
             <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={loading} className="btn-primary">{loading ? '...' : 'Enregistrer'}</button>
+            <button type="submit" disabled={loading} className="btn-primary">{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
           </div>
         </form>
       </div>
@@ -178,7 +178,8 @@ export default function PatentsPage() {
 
   const del = useMutation({
     mutationFn: async (id: string) => { 
-      await supabase.from('patents').delete().eq('id', id) 
+      // CORRECTION : Cast de la table en any pour court-circuiter les types stricts de Supabase sur le delete
+      await (supabase.from('patents') as any).delete().eq('id', id) 
     },
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['patents'] })
@@ -186,11 +187,14 @@ export default function PatentsPage() {
     },
   })
 
+  // CORRECTION : Cast systématique des objets de la liste en any pour fluidifier le filtrage et l'affichage des métriques
+  const itemsData = items as any[]
+  
   const stats = {
-    total: items.length,
-    granted: items.filter((i) => i.status === 'granted').length,
-    pending: items.filter((i) => ['filed', 'pending'].includes(i.status ?? '')).length,
-    brevets: items.filter((i) => (i as any).patent_type === 'brevet').length,
+    total: itemsData.length,
+    granted: itemsData.filter((i) => i.status === 'granted').length,
+    pending: itemsData.filter((i) => ['filed', 'pending'].includes(i.status ?? '')).length,
+    brevets: itemsData.filter((i) => i.patent_type === 'brevet').length,
   }
 
   return (
@@ -241,29 +245,25 @@ export default function PatentsPage() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={8} className="text-center py-10">Chargement...</td></tr>
-            ) : items.length === 0 ? (
+            ) : itemsData.length === 0 ? (
               <tr><td colSpan={8} className="text-center py-10 text-um6p-gray-dark">Aucun titre de PI enregistré</td></tr>
-            ) : items.map((item) => {
-              const itemData = item as any
-              return (
-                <tr key={item.id} className="table-row">
-                  {/* Correction de l'erreur TS2339 en utilisant itemData pour contourner l'absence de patent_type sur l'interface stricte */}
-                  <td><span className="badge-info capitalize">{TYPE_OPTIONS.find(t => t.value === itemData.patent_type)?.label ?? itemData.patent_type}</span></td>
-                  <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{itemData.title}</td>
-                  <td className="text-xs font-mono text-um6p-gray-dark">{itemData.reference_number}</td>
-                  <td className="text-sm">{itemData.country}</td>
-                  <td className="text-xs text-um6p-gray-dark">{itemData.filing_date}</td>
-                  <td className="text-sm">{itemData.assignee}</td>
-                  <td><StatusBadge status={itemData.status ?? 'filed'} /></td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
-                      <button onClick={() => { if (item.id && confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
+            ) : itemsData.map((item) => (
+              <tr key={item.id} className="table-row">
+                <td><span className="badge-info capitalize">{TYPE_OPTIONS.find(t => t.value === item.patent_type)?.label ?? item.patent_type}</span></td>
+                <td className="text-sm font-medium text-um6p-navy max-w-xs truncate">{item.title}</td>
+                <td className="text-xs font-mono text-um6p-gray-dark">{item.reference_number}</td>
+                <td className="text-sm">{item.country}</td>
+                <td className="text-xs text-um6p-gray-dark">{item.filing_date}</td>
+                <td className="text-sm">{item.assignee}</td>
+                <td><StatusBadge status={item.status ?? 'filed'} /></td>
+                <td>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditing(item); setModalOpen(true) }} className="p-1.5 rounded-lg hover:bg-um6p-gray text-um6p-gray-dark"><Edit2 size={14} /></button>
+                    <button onClick={() => { if (item.id && confirm('Supprimer ?')) del.mutate(item.id) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
