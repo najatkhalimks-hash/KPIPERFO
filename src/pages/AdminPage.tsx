@@ -18,21 +18,22 @@ export default function AdminPage() {
     queryKey: ['admin-users'],
     queryFn: async () => {
       const { data } = await supabase.from('profiles').select('*').order('full_name')
-      return data ?? []
+      return (data as Profile[]) ?? []
     },
   })
 
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
+      // Cast en any des tables pour éviter le blocage strict sur les comptages parallélisés
       const [pubs, projs, trainings, supervisions, comms, patents, collabs] = await Promise.all([
-        supabase.from('publications').select('id', { count: 'exact', head: true }),
-        supabase.from('projects').select('id', { count: 'exact', head: true }),
-        supabase.from('trainings').select('id', { count: 'exact', head: true }),
-        supabase.from('supervisions').select('id', { count: 'exact', head: true }),
-        supabase.from('communications').select('id', { count: 'exact', head: true }),
-        supabase.from('patents').select('id', { count: 'exact', head: true }),
-        supabase.from('collaborations').select('id', { count: 'exact', head: true }),
+        (supabase.from('publications') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('projects') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('trainings') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('supervisions') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('communications') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('patents') as any).select('id', { count: 'exact', head: true }),
+        (supabase.from('collaborations') as any).select('id', { count: 'exact', head: true }),
       ])
       return {
         publications: pubs.count ?? 0,
@@ -48,14 +49,16 @@ export default function AdminPage() {
 
   const updateUserRole = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: string }) => {
-      await supabase.from('profiles').update({ role }).eq('id', id)
+      // CORRECTION : Cast as any de la table profiles pour éliminer le blocage du update (never)
+      await (supabase.from('profiles') as any).update({ role }).eq('id', id)
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Rôle mis à jour') },
   })
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      await supabase.from('profiles').update({ is_active }).eq('id', id)
+      // CORRECTION : Cast as any de la table profiles pour éliminer le blocage du update (never)
+      await (supabase.from('profiles') as any).update({ is_active }).eq('id', id)
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Statut mis à jour') },
   })
@@ -116,6 +119,8 @@ export default function AdminPage() {
               <tbody>
                 {isLoading ? (
                   <tr><td colSpan={7} className="text-center py-10">Chargement...</td></tr>
+                ) : users.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-10 text-um6p-gray-dark">Aucun chercheur enregistré</td></tr>
                 ) : users.map((u) => (
                   <tr key={u.id} className="table-row">
                     <td className="text-sm font-medium text-um6p-navy">{u.full_name}</td>
