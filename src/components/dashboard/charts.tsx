@@ -3,21 +3,30 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Forecast, Publication, Project } from '@/types/database'
 
-// Publications by year chart
+// 1. Publications by year chart
 export function PublicationsByYear({ researcherId }: { researcherId?: string }) {
   const { data } = useQuery({
     queryKey: ['publications-by-year', researcherId],
     enabled: !!researcherId,
     queryFn: async () => {
-      const { data } = await supabase.from('publications').select('year, publication_stage').eq('researcher_id', researcherId!)
+      const { data: fetchDocs } = await supabase
+        .from('publications')
+        .select('year, publication_stage')
+        .eq('researcher_id', researcherId!)
+
       const byYear: Record<number, { published: number; accepted: number }> = {}
-      ;(data ?? []).forEach((p: Publication) => {
+      
+      ;(fetchDocs ?? []).forEach((p: Publication) => {
         if (!p.year) return
         if (!byYear[p.year]) byYear[p.year] = { published: 0, accepted: 0 }
         if (p.publication_stage === 'published') byYear[p.year].published++
         else if (p.publication_stage === 'accepted') byYear[p.year].accepted++
       })
-      return Object.entries(byYear).map(([year, v]) => ({ year, ...v })).sort((a, b) => Number(a.year) - Number(b.year)).slice(-6)
+
+      return Object.entries(byYear)
+        .map(([year, v]) => ({ year: Number(year), ...v }))
+        .sort((a, b) => a.year - b.year)
+        .slice(-6)
     },
   })
 
@@ -38,7 +47,7 @@ export function PublicationsByYear({ researcherId }: { researcherId?: string }) 
   )
 }
 
-// Forecast vs realized chart
+// 2. Forecast vs realized chart
 export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast[]; kpis?: Record<string, number | string> }) {
   const keyLabels: Record<string, string> = {
     publications_total: 'Publications',
@@ -53,7 +62,7 @@ export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast
     .map((f) => ({
       name: keyLabels[f.kpi_key] ?? f.kpi_key,
       Objectif: f.planned_value,
-      Réalisé: typeof kpis?.[f.kpi_key] === 'number' ? kpis[f.kpi_key] : 0,
+      Réalisé: typeof kpis?.[f.kpi_key] === 'number' ? (kpis[f.kpi_key] as number) : 0,
     }))
 
   if (!chartData.length) return <p className="text-sm text-um6p-gray-dark text-center py-8">Définissez vos objectifs dans Prévisions</p>
@@ -73,7 +82,7 @@ export function ForecastChart({ forecastsData, kpis }: { forecastsData: Forecast
   )
 }
 
-// Projects budget chart
+// 3. Projects budget chart
 export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] }) {
   const byStatus = [
     { name: 'Obtenus', value: projectsData.filter((p) => ['obtained', 'active', 'completed'].includes(p.status ?? '')).reduce((s, p) => s + (p.um6p_budget ?? 0), 0) },
@@ -107,7 +116,7 @@ export function ProjectsBudgetChart({ projectsData }: { projectsData: Project[] 
   )
 }
 
-// Activity timeline
+// 4. Activity timeline
 export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
   const { data } = useQuery({
     queryKey: ['activity-timeline', researcherId],
@@ -118,11 +127,13 @@ export function ActivityTimeline({ researcherId }: { researcherId?: string }) {
         supabase.from('projects').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
         supabase.from('communications').select('id, title, created_at').eq('researcher_id', researcherId!).order('created_at', { ascending: false }).limit(2),
       ])
+
       const events = [
-        ...(pubs.data ?? []).map((p) => ({ ...(p || {}), type: 'publication', icon: '📄' })),
-        ...(projects.data ?? []).map((p) => ({ ...p, type: 'project', icon: '📁' })),
-        ...(comms.data ?? []).map((c) => ({ ...c, type: 'communication', icon: '🎤' })),
+        ...(pubs.data ?? []).filter(p => p?.created_at).map((p) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'publication', icon: '📄' })),
+        ...(projects.data ?? []).filter(p => p?.created_at).map((p) => ({ id: p.id, title: p.title, created_at: p.created_at, type: 'project', icon: '📁' })),
+        ...(comms.data ?? []).filter(c => c?.created_at).map((c) => ({ id: c.id, title: c.title, created_at: c.created_at, type: 'communication', icon: '🎤' })),
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6)
+
       return events
     },
   })
