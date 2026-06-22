@@ -23,8 +23,14 @@ async function fetchRealizedValues(researcherId: string): Promise<Record<string,
     supabase.from('service_missions').select('amount, role').eq('researcher_id', researcherId),
   ])
 
-  const p = pubs.data ?? [], pr = projects.data ?? [], t = trainings.data ?? [], s = supervisions.data ?? []
-  const c = comms.data ?? [], pat = patents.data ?? [], sv = services.data ?? []
+  // Cast en any[] pour éviter le type 'never[]' lors de l'inférence automatique de Supabase
+  const p = (pubs.data as any[]) ?? []
+  const pr = (projects.data as any[]) ?? []
+  const t = (trainings.data as any[]) ?? []
+  const s = (supervisions.data as any[]) ?? []
+  const c = (comms.data as any[]) ?? []
+  const pat = (patents.data as any[]) ?? []
+  const sv = (services.data as any[]) ?? []
 
   return {
     publications_total: p.length,
@@ -94,7 +100,7 @@ export default function ForecastsPage() {
         .eq('researcher_id', profile!.id)
         .eq('academic_year_id', selectedAcademicYear!)
       const map: ForecastMap = {}
-      ;(data ?? []).forEach((f: Forecast) => { map[f.kpi_key] = f })
+      ;((data as Forecast[]) ?? []).forEach((f: Forecast) => { map[f.kpi_key] = f })
       return map
     },
   })
@@ -129,7 +135,10 @@ export default function ForecastsPage() {
           status,
         }
       })
-      await supabase.from('forecasts').upsert(upserts, { onConflict: 'researcher_id,academic_year_id,kpi_key' })
+      
+      // Cast de la table en any pour court-circuiter l'erreur "never[]" sur la méthode upsert
+      await (supabase.from('forecasts') as any).upsert(upserts, { onConflict: 'researcher_id,academic_year_id,kpi_key' })
+      
       qc.invalidateQueries({ queryKey: ['forecasts'] })
       setEdits({})
       toast.success('Prévisions et réalisations enregistrées')
@@ -165,7 +174,6 @@ export default function ForecastsPage() {
         </button>
       </div>
 
-      {/* Legend */}
       <div className="card p-4 flex flex-wrap gap-4 text-xs">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500" /> Atteint ≥ 100%</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400" /> En cours 75–99%</span>
