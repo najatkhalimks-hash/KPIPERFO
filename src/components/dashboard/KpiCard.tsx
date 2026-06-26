@@ -28,8 +28,8 @@ const textColorMap = {
 }
 
 function getStatusInfo(forecast?: Forecast, realized?: number) {
-  if (!forecast || forecast.planned_value === 0) return null
-  const planned = forecast.planned_value
+  if (!forecast || !forecast.planned) return null
+  const planned = forecast.planned ?? 0
   const actual = realized ?? 0
   const pct = planned > 0 ? Math.round((actual / planned) * 100) : 0
   if (pct >= 100) return { label: `${pct}% ✅`, className: 'text-green-600' }
@@ -55,15 +55,15 @@ export default function KpiCard({ label, value, unit, icon, color = 'green', for
         </p>
         <p className="text-xs text-um6p-gray-dark leading-tight mt-0.5">{label}</p>
       </div>
-      {forecast && forecast.planned_value > 0 && (
+      {forecast && (forecast.planned ?? 0) > 0 && (
         <div className="mt-1">
           <div className="flex justify-between text-xs text-um6p-gray-dark mb-1">
-            <span>Objectif: {forecast.planned_value}{unit}</span>
+            <span>Objectif: {forecast.planned ?? 0}{unit}</span>
           </div>
           <div className="progress-bar">
             <div
               className="progress-fill bg-um6p-green"
-              style={{ width: `${Math.min(100, Math.round((numericValue / forecast.planned_value) * 100))}%` }}
+              style={{ width: `${Math.min(100, Math.round((numericValue / (forecast.planned ?? 1)) * 100))}%` }}
             />
           </div>
         </div>
